@@ -1377,7 +1377,7 @@ document.addEventListener('touchend', function(e){
       <label class="toggle"><input type="checkbox" id="lyr-st20sub" onchange="toggleSubLayer('st20sub',this.checked)"><span class="toggle-slider"></span></label>
     </div>
     <div class="layer-row">
-      <label>🏗️ Objekty SO (101.1, 103…)</label>
+      <label>🏗️ Objekty SO (101, 202)</label>
       <label class="toggle"><input type="checkbox" id="lyr-soSub" checked onchange="toggleSubLayer('soSub',this.checked)"><span class="toggle-slider"></span></label>
     </div>
   </div>
@@ -1423,12 +1423,6 @@ document.addEventListener('touchend', function(e){
       <input id="plochy-opacity" type="range" min="10" max="100" value="55" oninput="setPlochyOpacity(this.value)" style="flex:1;">
     </div>
   </div>
-  <div data-perm="objekty">
-  <div class="layer-row">
-    <label>🚰 Voda/elektro SO 103</label>
-    <label class="toggle"><input type="checkbox" id="lyr-voda" onchange="setVodaVisible(this.checked)"><span class="toggle-slider"></span></label>
-  </div>
-  </div><!-- /objekty voda -->
   <h3>📍 Vrstvy</h3>
   <div data-perm="trasa">
   <div class="layer-row">
@@ -1511,15 +1505,11 @@ document.addEventListener('touchend', function(e){
   </div><!-- /ukoly -->
   <div data-perm="objekty">
   <div class="layer-row">
-    <label>🔵 Propustky (SO 104, SO 105)</label>
-    <label class="toggle"><input type="checkbox" id="lyr-prop" checked onchange="toggleLayer('propustky',this.checked)"><span class="toggle-slider"></span></label>
-  </div>
-  <div class="layer-row">
-    <label>🧩 Doplňkové SO (000/300/400/500)</label>
+    <label>🌉 Mosty – mostní závěry (SO 201)</label>
     <label class="toggle"><input type="checkbox" id="lyr-doplnky" checked onchange="toggleLayer('doplnky',this.checked)"><span class="toggle-slider"></span></label>
   </div>
   <div class="layer-row">
-    <label>🏗️ Stavební objekty SO</label>
+    <label>🏗️ Stavební objekty SO (101, 202)</label>
     <label class="toggle"><input type="checkbox" id="lyr-so" checked onchange="toggleLayer('so',this.checked)"><span class="toggle-slider"></span></label>
   </div>
   </div><!-- /objekty -->
@@ -2341,7 +2331,8 @@ function showToast(msg,dur) {
 // ── MAPA ──────────────────────────────
 function initMap() {
   map=L.map('map',{
-    center:[49.917,14.580],
+    // Data-driven střed = prostřední bod osy TÉTO stavby (ne natvrdo souřadnice).
+    center:(typeof GPX_POINTS!=='undefined' && GPX_POINTS.length)?GPX_POINTS[Math.floor(GPX_POINTS.length/2)]:[50.40,14.92],
     zoom:14,
     maxZoom:23,
     zoomControl:true,
@@ -2463,7 +2454,7 @@ function buildSOSub() {
       var lbl=L.divIcon({className:'',
         html:'<div style="color:'+so.barva+';font-size:14px;font-weight:800;white-space:nowrap;'+
           'text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;'+
-          'transform:rotate('+(rot+90).toFixed(0)+'deg);transform-origin:0 50%;">'+so.id+'</div>',
+          'transform:rotate('+_lblRot(rot)+'deg);transform-origin:0 50%;">'+so.id+'</div>',
         iconSize:[0,0], iconAnchor:[0,0]});
       L.marker([latL,lngL],{icon:lbl,interactive:false}).addTo(layerGroups.soSub);
     }
@@ -2570,6 +2561,10 @@ function bearingAtGpxM(gpxM) {
   var n=GPX_POINTS.length-1;
   return segBearing(GPX_POINTS[n-1][0],GPX_POINTS[n-1][1],GPX_POINTS[n][0],GPX_POINTS[n][1]);
 }
+
+// Rotace popisku podél osy – normalizovaná do (−90°,90°], aby text NIKDY nebyl vzhůru nohama
+// (past: trasy s bearingem 90–270° jinak převracely popisky SO/etap – viz SZ→SV úseky).
+function _lblRot(bear){ var r=bear+90; while(r>90)r-=180; while(r<=-90)r+=180; return Math.round(r); }
 
 // ── PRÁCE – barevné linie podél osy dle typu práce (default vypnutá vrstva) ──
 function buildPrace(){
@@ -3500,7 +3495,14 @@ function centerGPS() {
 
 function resetMapView() {
   if(!map) return;
-  map.setView([49.917, 14.580], 14);
+  // Data-driven: kadruj na osu TÉTO stavby (ne natvrdo souřadnice) – jinak „Domů" skáče jinam.
+  if(typeof GPX_POINTS !== 'undefined' && GPX_POINTS.length){
+    var b = L.latLngBounds(GPX_POINTS);
+    // leaflet-rotate občas nezvládne zoom u fitBounds → dopočítej a nastav ručně (jinak vyskočí max zoom).
+    var z = map.getBoundsZoom(b, false, L.point(40,40));
+    if(!isFinite(z)) z = 14;
+    map.setView(b.getCenter(), z, {animate:false});
+  }
 }
 function toggleLayers(){
   var open = document.getElementById('layers-panel').classList.toggle('open');
@@ -8021,7 +8023,7 @@ var STAVEBNI_OBJEKTY = [
   // SO 101 – oprava vozovky dálnice D10 (celý úsek 41,033–44,872 = lokálně 0,000–3,838)
   {id:'SO 101', kmOd:0.000, kmDo:3.838, barva:'#3b82f6', label:'SO 101', short:'SO 101 – oprava vozovky dálnice D10 (D10 41,033–44,872 / lok. 0,000–3,838)'},
   // SO 202 – zárubní zeď (dálnice km 43,604–43,804 → lokálně 2,571–2,771)
-  {id:'SO 202', kmOd:2.571, kmDo:2.771, barva:'#64748b', label:'SO 202', short:'SO 202 – zárubní zeď (D10 43,604–43,804 / lok. 2,571–2,771)'},
+  {id:'SO 202', kmOd:2.571, kmDo:2.771, barva:'#d946ef', label:'SO 202', short:'SO 202 – zárubní zeď (D10 43,604–43,804 / lok. 2,571–2,771)'},
 ];
 
 // ═══════════════════════════════════
@@ -8195,7 +8197,7 @@ function buildSO() {
         className:'',
         html:'<div style="color:'+so.barva+';font-size:14px;font-weight:800;white-space:nowrap;'+
              'text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;'+
-             'transform:rotate('+(rot+90).toFixed(0)+'deg);transform-origin:0 50%;">'+
+             'transform:rotate('+_lblRot(rot)+'deg);transform-origin:0 50%;">'+
              so.id+'</div>',
         iconSize:[0,0], iconAnchor:[0,0],
       });
@@ -8259,7 +8261,7 @@ function buildEtapy() {
             className:'',
             html:'<div style="color:'+etapa.barva+';font-size:14px;font-weight:800;white-space:nowrap;'+
                  'text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;'+
-                 'transform:rotate('+(rot+90).toFixed(0)+'deg);transform-origin:0 50%;">'+
+                 'transform:rotate('+_lblRot(rot)+'deg);transform-origin:0 50%;">'+
                  'E'+etapa.id+' // '+(u.terminUsek||etapa.termin)+'</div>',
             iconSize:[0,0], iconAnchor:[0,0],
           });
@@ -10236,7 +10238,7 @@ window._quickPhotoDone = false;   // URL ?foto/#foto → foťák (jednou za náv
 // Doplň sem uid koordinátora/koordinátorů (admin smí mazat cokoliv).
 // uid najdeš po přihlášení v konzoli: window.currentUser.uid, nebo ve
 // Firebase v /uzivatele. Prázdné pole = admina nemá nikdo.
-var ADMIN_UIDS = [ '7GapoHzBzZMP6CtQXQgoPL0aVL52' ]; // arasid33@gmail.com (koordinátor)
+var ADMIN_UIDS = [ 'iQjiFUAWVob9nya7WtmtD3wVJDq2' ]; // arasid33@gmail.com (koordinátor) – UID v projektu d10-kosmonosy-bezdecin
 // Vrací true, když aktuální uživatel smí smazat záznam daného vlastníka:
 //  - vlastník (shodné uid) smí,
 //  - admin (v ADMIN_UIDS) smí cokoliv,

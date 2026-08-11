@@ -6,7 +6,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 // VERZE cache - při změně příště zvedni, ať si telefony stáhnou novou verzi.
-const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v4-2026-08-11';
+const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v5-2026-08-11';
 
 const CORE_ASSETS = [
   './',
@@ -96,7 +96,7 @@ self.addEventListener('push', function(event) {
     try { data = { notification: { title: 'Notifikace', body: event.data.text() } }; } catch(_) {}
   }
   var n = data.notification || {};
-  var title = n.title || 'Sulice – Želivec';
+  var title = n.title || 'D10 Kosmonosy – Bezděčín';
   var options = {
     body:    n.body || '',
     icon:    n.icon || './manifest.json',

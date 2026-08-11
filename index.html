@@ -1445,15 +1445,20 @@ document.addEventListener('touchend', function(e){
     <label class="toggle"><input type="checkbox" id="lyr-st100dal" onchange="toggleLayer('st100dal',this.checked)"><span class="toggle-slider"></span></label>
   </div>
   </div><!-- /staničení D10 -->
-  <!-- 🚧 Vrstva PRÁCE dočasně SKRYTÁ (nesedí data) – zapneme až doladíme. Kód (buildPrace/PRACE) zůstává.
   <div data-perm="prace">
   <div class="layer-row">
-    <label>🚧 Práce (svodidla, sanace…)</label>
+    <label>🚧 Práce (sanace, curb-king, svodidla)</label>
     <label class="toggle"><input type="checkbox" id="lyr-prace" onchange="toggleLayer('prace',this.checked)"><span class="toggle-slider"></span></label>
   </div>
-  <div style="font-size:11px;color:var(--text2);opacity:.75;">Barevné úseky prací podél osy: 🛡️ svodidla, ⛏️ sanace/frézování, 🟫 krajnice, 💧 curb-king, ⬛ obrus. Klik na úsek = popis + staničení. Doplňuje se z výkresů.</div>
+  <div style="font-size:11px;color:var(--text2);opacity:.75;">Barevné úseky prací podél osy: ⛏️ sanace, 💧 curb-king (rychlý vlevo, pomalý vpravo), 🛡️ svodidla (barva dle typu zásahu z výkresu). Klik = popis + staničení lok. i D10. <b style="color:#dc2626;">U svodidel není rozlišen pomalý/rychlý pruh – ověř ve výkresu.</b></div>
   </div>
-  -->
+  <div data-perm="uv">
+  <div class="layer-row">
+    <label>💧 UV – uliční vpusti</label>
+    <label class="toggle"><input type="checkbox" id="lyr-uv" onchange="toggleLayer('uv',this.checked)"><span class="toggle-slider"></span></label>
+  </div>
+  <div style="font-size:11px;color:var(--text2);opacity:.75;">Uliční vpusti z TZ SO 101 (🔵 stávající, 🟢 nová). Klik = číslo UV + staničení lok. i D10.</div>
+  </div><!-- /UV -->
   <div data-perm="pripominky">
   <div class="layer-row">
     <label>📝 Poznámky</label>
@@ -2249,7 +2254,7 @@ var gpsActive = false;
 var gpsCentering = false;
 var gpxCumulative = [];
 var calibSorted = null;
-var layerGroups = {trasa:null, st100:null, st100sub:null, st20:null, st20sub:null, st100dal:null, prace:null, soSub:null, pr:null, propustky:null, prikopy:null, etapy:null, etapa1:null, etapa2:null, etapa3:null, etapa4:null, so:null, so101_1:null, so101_2:null, so101_3:null, sanace:null, notes:null, notes0:null, notes1:null, notes2:null, notes3:null, notes4:null, notes5:null, notes6:null, mereni:null, drone:null, pano:null, sondy:null};
+var layerGroups = {trasa:null, st100:null, st100sub:null, st20:null, st20sub:null, st100dal:null, prace:null, uv:null, soSub:null, pr:null, propustky:null, prikopy:null, etapy:null, etapa1:null, etapa2:null, etapa3:null, etapa4:null, so:null, so101_1:null, so101_2:null, so101_3:null, sanace:null, notes:null, notes0:null, notes1:null, notes2:null, notes3:null, notes4:null, notes5:null, notes6:null, mereni:null, drone:null, pano:null, sondy:null};
 
 // ── MATH ──────────────────────────────
 function haversine(lat1,lon1,lat2,lon2) {
@@ -2571,40 +2576,69 @@ function bearingAtGpxM(gpxM) {
 function _lblRot(bear){ var r=bear+90; while(r>90)r-=180; while(r<=-90)r+=180; return Math.round(r); }
 
 // ── PRÁCE – barevné linie podél osy dle typu práce (default vypnutá vrstva) ──
+// pruh: 'rychly' (vlevo od osy) / 'pomaly' (vpravo) / 'oba' (vlevo, blíž ose). typOffset = odsazení dle typu (ať se nepřekrývají).
+function _pruhLabel(p){ return p==='rychly'?'rychlý pruh':(p==='pomaly'?'pomalý pruh':(p==='oba'?'oba pruhy':'')); }
 function buildPrace(){
   layerGroups.prace = L.layerGroup();   // detached – zapíná přepínač ve Vrstvách
-  var typOffset = {svodidla:35, sanace:45, krajnice:55, curbking:65, obrus:75};
+  var typOffset = {svodidla:28, sanace:22, krajnice:40, curbking:34, obrus:14};
   (typeof PRACE!=='undefined'?PRACE:[]).forEach(function(pr){
     var t = PRACE_TYPY[pr.typ] || {barva:'#888', label:pr.typ};
-    var offBase = typOffset[pr.typ] || 50;
-    var pts=[], km=pr.kmOd;
-    while(km <= pr.kmDo + 0.001){
+    var kmA = Math.min(pr.kmOd, pr.kmDo), kmB = Math.max(pr.kmOd, pr.kmDo);   // normalizace pořadí
+    var sideDeg = (pr.pruh==='pomaly') ? 90 : -90;                             // pomalý vpravo, rychlý/oba vlevo
+    var offBase = (typOffset[pr.typ]||30) + (pr.pruh==='oba'?0:0);
+    // seznam km: kmA, kmA+20m, …, a VŽDY koncový kmB (ať se vykreslí i krátké úseky / body – tlumiče, výměny)
+    var kmList=[], k=kmA;
+    while(k < kmB - 0.001){ kmList.push(k); k=Math.round((k+0.020)*1000)/1000; }
+    kmList.push(kmB);
+    var pts=[];
+    kmList.forEach(function(km){
       var pos=realKmToLatLng(km);
       if(pos){
         var gpxM=interp(calibSorted,'realKm','gpxM',km);
         var bear=bearingAtGpxM(gpxM);
-        var perpRad=(bear+90)*Math.PI/180;   // PRAVÁ strana osy (opačně než SO/staničení)
+        var perpRad=(bear+sideDeg)*Math.PI/180;
         var off=offBase/6371000;
         pts.push([pos[0]+off*(180/Math.PI)*Math.cos(perpRad),
                   pos[1]+off*(180/Math.PI)*Math.sin(perpRad)/Math.cos(pos[0]*Math.PI/180)]);
       }
-      km=Math.round((km+0.020)*1000)/1000;
-    }
+    });
     if(pts.length<2) return;
-    var line=L.polyline(pts,{color:t.barva,weight:6,opacity:0.85});
-    line.bindPopup('<div style="min-width:200px;font-size:12px;line-height:1.5;">'
-      +'<b>'+t.label+'</b><br>'
-      +'<b>km '+fmtKm(pr.kmOd)+' – '+fmtKm(pr.kmDo)+'</b> ('+Math.round((pr.kmDo-pr.kmOd)*1000)+' m)<br>'
-      +escapeHtml(pr.popis||'')+'</div>');
+    var color = pr.barva || t.barva;   // per-úsek barva (svodidla dle výkresu) má přednost
+    var line=L.polyline(pts,{color:color,weight:6,opacity:0.9});
+    var pruhTxt = _pruhLabel(pr.pruh);
+    line.bindPopup('<div style="min-width:210px;font-size:12px;line-height:1.5;">'
+      +'<b>'+t.label+'</b>'+(pruhTxt?(' · '+pruhTxt):'')+'<br>'
+      +'<b>km '+fmtKm(kmA)+' – '+fmtKm(kmB)+'</b> ('+Math.round((kmB-kmA)*1000)+' m)<br>'
+      +'<span style="color:#888;">D10 '+String(localKmToDalniceKm(kmA).toFixed(3)).replace('.',',')+' – '+String(localKmToDalniceKm(kmB).toFixed(3)).replace('.',',')+'</span>'
+      +(pr.popis?('<br>'+escapeHtml(pr.popis)):'')
+      +(pr.note?('<br><span style="color:#dc2626;">'+escapeHtml(pr.note)+'</span>'):'')+'</div>');
     line.addTo(layerGroups.prace);
     // štítek uprostřed
-    var midKm=(pr.kmOd+pr.kmDo)/2, mid=realKmToLatLng(midKm);
+    var midKm=(kmA+kmB)/2, mid=realKmToLatLng(midKm);
     if(mid){
-      var lbl=L.divIcon({className:'',html:'<div style="color:'+t.barva+';font-size:12px;font-weight:800;white-space:nowrap;'
-        +'text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff;">'+t.label.split(' ')[0]+'</div>',
+      var lbl=L.divIcon({className:'',html:'<div style="color:'+color+';font-size:12px;font-weight:800;white-space:nowrap;'
+        +'text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff;">'+t.label.split(' ')[0]+(pruhTxt?(' '+(pr.pruh==='rychly'?'R':pr.pruh==='pomaly'?'P':'')):'')+'</div>',
         iconSize:[0,0],iconAnchor:[0,0]});
       L.marker(mid,{icon:lbl,interactive:false}).addTo(layerGroups.prace);
     }
+  });
+}
+
+// ── UV – uliční vpusti (body podél osy, modrá = stávající, zelená = nová). Default vypnutá. ──
+function buildUV(){
+  layerGroups.uv = L.layerGroup();
+  (typeof UV_VPUSTI!=='undefined'?UV_VPUSTI:[]).forEach(function(v){
+    var pos = realKmToLatLng(v.km); if(!pos) return;
+    var gpxM=interp(calibSorted,'realKm','gpxM',v.km);
+    var bear=bearingAtGpxM(gpxM);
+    var perpRad=(bear+90)*Math.PI/180, off=12/6371000;   // mírně vpravo od osy
+    var lat=pos[0]+off*(180/Math.PI)*Math.cos(perpRad);
+    var lng=pos[1]+off*(180/Math.PI)*Math.sin(perpRad)/Math.cos(pos[0]*Math.PI/180);
+    var col = v.nova ? '#22c55e' : '#0ea5e9';
+    var m=L.circleMarker([lat,lng],{radius:5,color:'#fff',weight:1.5,fillColor:col,fillOpacity:0.95});
+    m.bindPopup('<div style="font-size:12px;line-height:1.5;"><b>💧 UV'+v.n+'</b>'+(v.nova?' <span style="color:#22c55e;font-weight:700;">(nová vpusť)</span>':'')
+      +'<br><b>km '+fmtKm(v.km)+'</b><br><span style="color:#888;">D10 '+String(localKmToDalniceKm(v.km).toFixed(3)).replace('.',',')+'</span></div>');
+    m.addTo(layerGroups.uv);
   });
 }
 
@@ -3057,10 +3091,16 @@ function _ensureSoIndex(){
       (p.vykresy||[]).forEach(function(v){ add(soOfSoubor(v.soubor), v.typ, v.nazev, v.soubor); });
     });
   }
-  // „Kde je objekt aktivní" = km-okna jeho SITUACÍ → podle nich se z km určuje SO.
-  (typeof DOCS_SITUACE!=='undefined'?DOCS_SITUACE:[]).forEach(function(d){
-    var so = soOfSoubor(d.soubor); if(!so) return;
-    (_soSegments[so] = _soSegments[so] || []).push([d.kmOd, d.kmDo]);
+  // „Kde je objekt aktivní" = km-okna jeho výkresů. Bereme SITUACE + DZ + OSTATNÍ (ne TZ – ta je celotrasová),
+  // aby se do panelu dostaly i SO, které nemají situaci (např. SO 190.1 dopr. značení, SO 801 vegetace).
+  [ (typeof DOCS_SITUACE!=='undefined'?DOCS_SITUACE:[]),
+    (typeof DOCS_DZ!=='undefined'?DOCS_DZ:[]),
+    (typeof DOCS_OST!=='undefined'?DOCS_OST:[]) ].forEach(function(arr){
+    arr.forEach(function(d){
+      var so = soOfSoubor(d.soubor); if(!so) return;
+      if(typeof d.kmOd!=='number' || typeof d.kmDo!=='number') return;
+      (_soSegments[so] = _soSegments[so] || []).push([d.kmOd, d.kmDo]);
+    });
   });
 }
 // Vrátí pole čísel SO, kterých se dané staničení týká (může jich být víc na přechodu objektů).
@@ -3619,7 +3659,8 @@ function init() {
   buildStaniceni20();
   buildStaniceni20Sub();
   buildStaniceniDal100();   // druhá vrstva – dálniční staničení D10 (modré), default vypnutá
-  // buildPrace();          // vrstva prací DOČASNĚ VYPNUTÁ (nesedí data) – zapneme až doladíme
+  buildPrace();             // vrstva prací (sanace, curb-king dle pruhu), default vypnutá
+  buildUV();                // vrstva UV (uliční vpusti z TZ SO 101), default vypnutá
   // buildPR vyžaduje DOCS_PR (pracovní řezy) - PDPS Sulice je nemá
   if(Object.keys(DOCS_PR).length) buildPR();
   if(SANACE.length) buildSanace();
@@ -8063,20 +8104,65 @@ var PRACE_TYPY = {
   obrus:    {barva:'#7c3aed', label:'⬛ Obrusná vrstva (ACL/ACO)'}
 };
 var PRACE = [
-  // — Svodidla (z SO 101 TZ, lokální km) —
-  {typ:'svodidla', kmOd:1.761, kmDo:2.265, popis:'Ocelové jednostranné svodidlo – úprava (D10 42,794–43,298)'},
-  {typ:'svodidla', kmOd:2.360, kmDo:2.602, popis:'Betonové oboustranné svodidlo ve zpevněné krajnici (D10 43,393–43,635)'},
-  {typ:'svodidla', kmOd:2.768, kmDo:2.848, popis:'Svodidlo na betonové ploše pod svodidlem (D10 43,801–43,881)'},
-  {typ:'svodidla', kmOd:2.873, kmDo:2.950, popis:'Výměna ocelového svodidla (D10 43,906–43,983)'},
-  {typ:'svodidla', kmOd:3.400, kmDo:3.488, popis:'Ocelové → betonové svodidlo (D10 44,432–44,520)'},
-  {typ:'svodidla', kmOd:3.659, kmDo:3.726, popis:'Výměna svodidla v klínu MÚK (D10 44,691–44,758)'},
-  // — Krajnice (obnova nezpevněné krajnice 0,5 m – v zásadě celý úsek) —
-  {typ:'krajnice', kmOd:0.000, kmDo:3.838, popis:'Obnova nezpevněné krajnice š. 0,5 m (0,75 u směr. sloupků) – celý úsek'},
-  // — Curb-king (obnova odvodňovacích žlabů podél vozovky) —
-  {typ:'curbking', kmOd:0.000, kmDo:3.838, popis:'Obnova odvodňovacích žlabů curb-king podél vozovky – dle situace'},
-  // — Obrusná vrstva (SMA/ACO po odfrézování 260 mm) – celý úsek —
-  {typ:'obrus', kmOd:0.000, kmDo:3.838, popis:'Odfrézování 260 mm + reprofilace + obrusná vrstva – celý úsek'}
-  // — Sanace podloží: konkrétní úseky doplnit z podélného profilu / VV —
+  // — Sanace (oba pruhy) — potvrzeno uživatelem
+  {typ:'sanace', kmOd:1.735, kmDo:1.960, pruh:'oba', popis:'Sanace – pomalý i rychlý pruh'},
+  // — Curb-king (odvodňovací žlaby) — potvrzeno uživatelem, per pruh
+  {typ:'curbking', kmOd:0.360, kmDo:2.300, pruh:'rychly', popis:'Curb-king – rychlý pruh'},
+  {typ:'curbking', kmOd:2.373, kmDo:2.572, pruh:'pomaly', popis:'Curb-king – pomalý pruh (199 m)'},
+  // — SVODIDLA (z výkresů situace svodidel). km = LOKÁLNÍ (dálniční − 41,033). Barva dle typu zásahu ve výkresu.
+  //   ⚠ POMALÝ/RYCHLÝ PRUH NENÍ ROZLIŠEN – nutno ověřit ve výkresu (doplňuje se přes note níže).
+  {typ:'svodidla', kmOd:1.704, kmDo:2.194, barva:'#16a34a', popis:'JSO-H2, dl. 482 m – montáž, ukončení výškovými náběhy'},
+  {typ:'svodidla', kmOd:2.352, kmDo:2.588, barva:'#06b6d4', popis:'OSB-H3, dl. 236 m – stávající, DEMONTÁŽ'},
+  {typ:'svodidla', kmOd:2.571, kmDo:2.659, barva:'#dc2626', popis:'Nové jednostranné betonové svodidlo CS-BETON 72 m + 2×8 m náběhy, úroveň zadržení H3, ochrana před nárazem do pilířů mostu – podél SO 202'},
+  {typ:'svodidla', kmOd:2.767, kmDo:2.839, barva:'#f97316', popis:'JSB-H3, dl. 80 m – montáž'},
+  {typ:'svodidla', kmOd:2.873, kmDo:2.949, barva:'#16a34a', popis:'JSO-H2, dl. 76 m – montáž'},
+  {typ:'svodidla', kmOd:2.955, kmDo:2.960, barva:'#16a34a', popis:'Tlumič nárazu -110 (D10 43,990) – montáž'},
+  {typ:'svodidla', kmOd:3.210, kmDo:3.266, barva:'#16a34a', popis:'JSO-H2, dl. 56 m – montáž'},
+  {typ:'svodidla', kmOd:3.266, kmDo:3.317, barva:'#374151', popis:'JSOM-H2, dl. 48 m – BEZ ÚPRAV'},
+  {typ:'svodidla', kmOd:3.266, kmDo:3.317, barva:'#06b6d4', popis:'JSOM-H2, dl. 48 m – DEMONTÁŽ A ZPĚTNÁ MONTÁŽ PÁSNIC (druhá strana)'},
+  {typ:'svodidla', kmOd:3.315, kmDo:3.345, barva:'#16a34a', popis:'JSO-H2, dl. 30 m – montáž'},
+  {typ:'svodidla', kmOd:3.345, kmDo:3.423, barva:'#2563eb', popis:'JSO-H1, dl. 78 m – montáž'},
+  {typ:'svodidla', kmOd:3.367, kmDo:3.447, barva:'#2563eb', popis:'JSO-H1, dl. 80 m – montáž'},
+  {typ:'svodidla', kmOd:3.399, kmDo:3.487, barva:'#f97316', popis:'JSB-H3, dl. 88 m – montáž'},
+  {typ:'svodidla', kmOd:3.667, kmDo:3.735, barva:'#16a34a', popis:'JSO-H2, dl. 68 m – montáž, napojení na stáv. tlumič'},
+  {typ:'svodidla', kmOd:3.735, kmDo:3.785, barva:'#16a34a', popis:'JSO-H2, dl. 68 m – montáž'},
+  {typ:'svodidla', kmOd:3.785, kmDo:3.847, barva:'#06b6d4', popis:'JSOM-H2, dl. 60 m – DEMONTÁŽ A ZPĚTNÁ MONTÁŽ SVODNIC'},
+  {typ:'svodidla', kmOd:3.835, kmDo:3.839, barva:'#dc2626', popis:'Výměna poškozených částí – tlumič nárazu (TNU), D10 44,870'}
+  // Krajnice / obrus: doplní se, až pošleš přesná staničení
+];
+// Barva svodidla = ÚROVEŇ ZADRŽENÍ dle legendy výkresu:
+//   N2 červená · H1 modrá · H2 zelená · H3 oranžová · H4 fialová ·
+//   STÁVAJÍCÍ BEZ ÚPRAVY černá · STÁV. DEMONTÁŽ/MONTÁŽ tyrkysová · výměna poškozených červená.
+function _svodidloBarva(popis){
+  var s=String(popis||'').toUpperCase();
+  if(/BEZ ÚPRAV/.test(s))       return '#111827';   // stávající bez úpravy
+  if(/DEMONT/.test(s))          return '#06b6d4';   // stáv. demontáž, montáž
+  if(/VÝMĚNA POŠKOZ/.test(s))   return '#ef4444';   // výměna poškozených částí
+  if(/TLUMIČ/.test(s))          return '#22c55e';   // nový tlumič nárazu (H2 úroveň)
+  if(/H4/.test(s)) return '#a855f7';
+  if(/H3/.test(s)) return '#f97316';
+  if(/H2/.test(s)) return '#22c55e';
+  if(/H1/.test(s)) return '#2563eb';
+  if(/N2/.test(s)) return '#ef4444';
+  return '#dc2626';
+}
+PRACE.forEach(function(p){
+  if(p.typ==='svodidla'){
+    p.barva = _svodidloBarva(p.popis);   // barva dle úrovně zadržení (legenda), přepíše výchozí
+    if(!p.note) p.note='⚠ Pomalý/rychlý pruh (strana) NENÍ rozlišen – ověřit ve výkresu situace svodidel.';
+  }
+});
+
+// ── UV – uliční vpusti (z TZ SO 101), lokální km. „nova" = nová vpusť. Samostatná přepínatelná vrstva. ──
+var UV_VPUSTI = [
+  {n:1,km:0.413},{n:2,km:0.456},{n:3,km:0.502},{n:4,km:0.544},{n:5,km:0.588},
+  {n:6,km:0.632},{n:7,km:0.683},{n:8,km:0.733},{n:9,km:0.784},{n:10,km:0.834},
+  {n:11,km:0.883},{n:12,km:0.935},{n:13,km:0.987},{n:14,km:1.035},{n:15,km:1.085},
+  {n:16,km:1.134},{n:17,km:1.183},{n:18,km:1.237},{n:19,km:1.283},{n:20,km:1.336},
+  {n:21,km:1.385},{n:22,km:1.434},{n:23,km:1.485},{n:24,km:1.537},{n:25,km:1.585,nova:1},
+  {n:26,km:1.635,nova:1},{n:27,km:1.685,nova:1},{n:28,km:1.735,nova:1},{n:29,km:1.785},{n:30,km:1.836},
+  {n:31,km:1.872},{n:32,km:1.936},{n:33,km:1.987},{n:34,km:2.038},{n:35,km:2.086},
+  {n:36,km:2.135},{n:37,km:2.186},{n:38,km:2.236},{n:39,km:2.285}
 ];
 
 // ═══════════════════════════════════
@@ -10371,7 +10457,8 @@ var FEATURES = [
   { key:'katastr',    label:'🗺️ Vrstva: Katastr (KN)', btns:[] },
   { key:'trasa',      label:'🗺️ Vrstva: Trasa a staničení', btns:[] },
   { key:'stdal',      label:'🗺️ Vrstva: Staničení D10 (dálnice, modré)', btns:[] },
-  { key:'prace',      label:'🗺️ Vrstva: Práce (svodidla, sanace, krajnice, curb-king, obrus)', btns:[] },
+  { key:'prace',      label:'🗺️ Vrstva: Práce (sanace, curb-king…)', btns:[] },
+  { key:'uv',         label:'🗺️ Vrstva: UV – uliční vpusti (SO 101)', btns:[] },
   { key:'objekty',    label:'🗺️ Vrstva: SO objekty (propustky, doplňkové SO, voda/elektro)', btns:[] },
   { key:'situace',    label:'🗺️ Vrstva: Koordinační situace (DWG)', btns:[] },
   { key:'orientace',  label:'🗺️ Vrstva: Orientační staničení/SO (pro subku)', btns:[] },
@@ -10381,7 +10468,7 @@ var FEATURES = [
 ];
 // Mapa vrstva → právo pro obecný toggleLayer(). Kde se id přepínače liší, viz LAYER_CB.
 var LAYER_PERM = {
-  trasa:'trasa', st100:'trasa', st20:'trasa', st100dal:'stdal', prace:'prace',
+  trasa:'trasa', st100:'trasa', st20:'trasa', st100dal:'stdal', prace:'prace', uv:'uv',
   propustky:'objekty', doplnky:'objekty', so:'objekty',
   notes0:'pripominky', notes1:'pripominky', notes2:'pripominky', notes3:'pripominky',
   notes4:'pripominky', notes5:'pripominky', notes6:'pripominky',

@@ -2067,7 +2067,7 @@ var PDF_BASE = 'pdf/';
 // appka jede dál beze změny. Call-sity se přepojují až ve Fázi A/B.
 // ══════════════════════════════════════════════════════════════════
 var USE_PRIVATE_FILES = true;        // hlavní vypínač (lze rychle vrátit na false)
-var STORAGE_BUCKET_URL = 'gs://d10-kosmonosy-bezdecin-eu';   // EU multi-region bucket (data v EU – GDPR)
+var STORAGE_BUCKET_URL = 'gs://d10-kosmonosy-bezdecin.firebasestorage.app';   // výchozí bucket v EU multi-region (data v EU – GDPR)
 function _privStorage(){ return firebase.app().storage(STORAGE_BUCKET_URL); }
 var _fileUrlCache = {};              // cesta → URL (nebo rozpracovaná Promise)
 var _fileFallbackHits = 0;          // počítadlo fallbacků (musí být 0 před Fází C)

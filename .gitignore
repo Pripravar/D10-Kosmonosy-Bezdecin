@@ -1,0 +1,9 @@
+.DS_Store
+*-firebase-adminsdk-*.json
+serviceAccountKey*.json
+node_modules/
+cloud-function/node_modules/
+pdf/
+photos/
+drone/
+pano360/

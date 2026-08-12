@@ -91,6 +91,11 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
   #user-badge span { display:none; }
   #user-badge img { width:24px; height:24px; }
   #km-display { font-size:12px; padding:4px 7px; }
+  /* Správa uživatelů (práva) na telefonu: menší okraje/tlačítka, ať se vejde a jde scrollovat svisle */
+  #user-admin-modal { padding:6px !important; }
+  .uadmin-head { padding:10px 10px !important; }
+  .uadmin-hbtn { font-size:12px !important; padding:6px 8px !important; }
+  #user-admin-list { padding-left:8px !important; padding-right:8px !important; }
 }
 /* Hodně úzký telefon (≤360 px) - skryj titulek úplně */
 @media (max-width:360px) {
@@ -1798,12 +1803,12 @@ document.addEventListener('touchend', function(e){
 </div>
 <!-- MODAL: Správa uživatelů (jen admin) -->
 <div id="user-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3600;align-items:center;justify-content:center;padding:14px;">
-  <div style="background:var(--panel);border-radius:14px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;border:1px solid var(--border);">
-    <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="flex:1;font-size:15px;font-weight:700;color:#f5a623;">👥 Správa uživatelů</div>
-      <button onclick="openCatPerms()" title="Výchozí práva kategorií" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;">⚙️ Práva kategorií</button>
-      <button onclick="openStats()" title="Statistiky využití" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;">📊 Statistiky</button>
-      <button onclick="if(confirm('Odhlásit se?')) signOutUser();" title="Odhlásit se" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;">🚪 Odhlásit</button>
+  <div class="uadmin-box" style="background:var(--panel);border-radius:14px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;border:1px solid var(--border);overflow:hidden;">
+    <div class="uadmin-head" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="flex:1 1 100%;font-size:15px;font-weight:700;color:#f5a623;min-width:120px;">👥 Správa uživatelů</div>
+      <button class="uadmin-hbtn" onclick="openCatPerms()" title="Výchozí práva kategorií" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">⚙️ Práva kategorií</button>
+      <button class="uadmin-hbtn" onclick="openStats()" title="Statistiky využití" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">📊 Statistiky</button>
+      <button class="uadmin-hbtn" onclick="if(confirm('Odhlásit se?')) signOutUser();" title="Odhlásit se" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🚪 Odhlásit</button>
       <button onclick="closeUserAdmin()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;min-width:44px;min-height:44px;">✕</button>
     </div>
     <div style="font-size:11px;color:var(--text2);padding:8px 16px 0;line-height:1.4;flex-shrink:0;">Zaškrtnuté = povolené funkce (nový uživatel má vše). Odškrtnutím funkci odebereš, 🚫 účet zablokuješ.</div>
@@ -18753,7 +18758,5 @@ function copyDiaryExport(){
   </div>
 </div>
 
-<!-- Přepínač staveb M-SILNICE (data z OZ-JIH/stavby.json) -->
-<script src="https://pripravar.github.io/OZ-JIH/switcher.js" defer></script>
 </body>
 </html>

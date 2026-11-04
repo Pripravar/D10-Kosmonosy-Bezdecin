@@ -3460,9 +3460,24 @@ function openStaniceniPanel(realKm) {
   pages.forEach(function(p){
     if(totals[p.typ] > 1){ seenc[p.typ] = (seenc[p.typ]||0) + 1; p.typ = p.typ + ' ' + seenc[p.typ]; }
   });
-  // Výkresy nahrané z aplikace (i zneplatněné) – neplatnost vyřeší finalizeDocPages
-  findVykresyForKm(realKm, true).forEach(function(d) {
-    pages.push({soubor:(d.soubor||''), nazev:(d.nazev||'Výkres'), typ:(d.kat||'📎 Výkres'), dokTyp:(d.dokTyp||'PDPS'), _invalid: !!d.neplatny, _duvod:(d.neplatnyDuvod||''), _by:(d.zneplatnilJmeno||''), _ts:(d.zneplatnenoTs||0)});
+  // Výkresy nahrané z aplikace (i zneplatněné – neplatnost vyřeší finalizeDocPages):
+  //  • RDS → ukázat na KAŽDÉM staničení hlavní trasy (nejsou vázané na km – přání uživatele)
+  //  • nahrané PDPS → jen v jejich km okně
+  // Do záložky (typ) dáváme NÁZEV výkresu, ať je poznat co je co (ne všechny „Výkres").
+  var _seenU = {};
+  (vykresyData || []).forEach(function(d){
+    if(!d || !d.soubor || _seenU[d.soubor]) return;
+    var isRds = (d.dokTyp === 'RDS');
+    var show = isRds;
+    if(!show){
+      var od = parseFloat(d.kmOd), doKm = parseFloat(d.kmDo);
+      show = (!isNaN(od) && !isNaN(doKm) && realKm >= od && realKm <= doKm);
+    }
+    if(!show) return;
+    _seenU[d.soubor] = 1;
+    pages.push({ soubor:(d.soubor||''), nazev:(d.nazev||'Výkres'),
+      typ:(d.nazev || d.kat || '📎 Výkres'),
+      dokTyp:(d.dokTyp||'PDPS'), _invalid:!!d.neplatny, _duvod:(d.neplatnyDuvod||''), _by:(d.zneplatnilJmeno||''), _ts:(d.zneplatnenoTs||0) });
   });
   openDocPanel(finalizeDocPages(pages), realKm, 0, true);   // true = zapni přepínač PDPS/RDS/Neplatné
 }
@@ -3591,7 +3606,9 @@ function renderDocTabs(){
     btn.className='pdf-tab'+(idx===docPageIdx?' active':'');
     btn.setAttribute('data-idx', idx);
     btn.textContent=p.typ;
-    if(p._invalid){ btn.style.opacity='0.6'; btn.style.fontStyle='italic'; btn.title='Zneplatněný výkres'; }
+    btn.title=(p.nazev||p.typ||'')+(p._invalid?' (neplatný)':'');
+    btn.style.maxWidth='180px'; btn.style.overflow='hidden'; btn.style.textOverflow='ellipsis'; btn.style.whiteSpace='nowrap';
+    if(p._invalid){ btn.style.opacity='0.6'; btn.style.fontStyle='italic'; }
     btn.onclick=(function(i){return function(){docGoTo(i);};})(idx);
     tabs.appendChild(btn);
   });
@@ -9215,7 +9232,7 @@ function openPropPanel(prop) {
                  && window._propPanelKm >= od && window._propPanelKm <= doKm);
       }
       if(match){
-        propPages.push({ soubor:d.soubor, nazev:(d.nazev||'Výkres'), typ:(d.kat||'📎 Výkres'),
+        propPages.push({ soubor:d.soubor, nazev:(d.nazev||'Výkres'), typ:(d.nazev||d.kat||'📎 Výkres'),
           dokTyp:(d.dokTyp||'PDPS'), _invalid:!!d.neplatny, _duvod:(d.neplatnyDuvod||''), _by:(d.zneplatnilJmeno||''), _ts:(d.zneplatnenoTs||0) });
         _seenSb[d.soubor] = true;
       }
@@ -9285,7 +9302,9 @@ function renderPropTabs(){
     btn.className='pdf-tab'+(idx===propPageIdx?' active':'');
     btn.setAttribute('data-idx', idx);
     btn.textContent=p.typ;
-    if(p._invalid){ btn.style.opacity='0.6'; btn.style.fontStyle='italic'; btn.title='Zneplatněný výkres'; }
+    btn.title=(p.nazev||p.typ||'')+(p._invalid?' (neplatný)':'');
+    btn.style.maxWidth='180px'; btn.style.overflow='hidden'; btn.style.textOverflow='ellipsis'; btn.style.whiteSpace='nowrap';
+    if(p._invalid){ btn.style.opacity='0.6'; btn.style.fontStyle='italic'; }
     btn.onclick=(function(i){return function(){ renderPropPage(i); };})(idx);
     tabs.appendChild(btn);
   });
@@ -20380,7 +20399,7 @@ function copyDiaryExport(){
     <button id="kzp-download-btn" onclick="downloadTeprWithSigs()" title="Stáhnout finální PDF s podpisy" style="display:none;background:var(--green);color:#fff;">📥 Stáhnout</button>
     <button id="kzp-evidence-btn" onclick="openSignEvidence()" title="Evidence podpisů (přehled tabulka)" style="background:var(--panel2);color:var(--text2);font-size:13px;">📋 Evidence</button>
     <button id="kzp-cleanup-btn" onclick="cleanupOldKzp()" title="Vyčistit staré KZP záznamy" style="background:var(--panel2);color:var(--text2);font-size:13px;">🧹</button>
-    <button id="kzp-add-btn" onclick="openKzpAddModal()" style="background:var(--accent);color:#fff;">+ Položka</button>
+    <!-- „+ Položka" (URL katalog) odebráno 2026-11-04 – 🧪 slouží jen k prohlížení + podepisování TePř/KZP; nahrání souborů je pod 📋 Dokumenty -->
     <button onclick="closeKzpPanel()">✕</button>
   </div>
   <div id="kzp-warning-banner" style="background:rgba(255,107,107,0.18);border-left:4px solid #ff6b6b;color:#ff8585;padding:10px 14px;font-size:13px;line-height:1.4;flex-shrink:0;">

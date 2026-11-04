@@ -3306,6 +3306,7 @@ function finalizeDocPages(pages){
 }
 // Feature 1: do které skupiny stránka patří – PDPS / RDS / NEPLATNE (neplatné mají přednost).
 window._docView = 'PDPS';
+window._docSwitchMode = false;  // true jen v panelu staničení → ukáže přepínač PDPS/RDS
 function _docGroupOf(p){
   if(!p) return 'PDPS';
   if(p._invalid) return 'NEPLATNE';
@@ -3412,7 +3413,7 @@ function openStaniceniPanel(realKm) {
   findVykresyForKm(realKm, true).forEach(function(d) {
     pages.push({soubor:(d.soubor||''), nazev:(d.nazev||'Výkres'), typ:(d.kat||'📎 Výkres'), dokTyp:(d.dokTyp||'PDPS'), _invalid: !!d.neplatny, _duvod:(d.neplatnyDuvod||''), _by:(d.zneplatnilJmeno||''), _ts:(d.zneplatnenoTs||0)});
   });
-  openDocPanel(finalizeDocPages(pages), realKm, 0);
+  openDocPanel(finalizeDocPages(pages), realKm, 0, true);   // true = zapni přepínač PDPS/RDS/Neplatné
 }
 // Překresli otevřený panel staničení (po změně platnosti)
 function rebuildDocPanel(){
@@ -3462,10 +3463,11 @@ function toggleInvalidateCurrentDoc(){
   rebuildDocPanel();
 }
 
-function openDocPanel(pages, realKm, startIdx) {
+function openDocPanel(pages, realKm, startIdx, switchMode) {
   docPages   = pages;
   docPageIdx = startIdx || 0;
   window._docPanelKm = (typeof realKm==='number') ? realKm : null;
+  window._docSwitchMode = !!switchMode;   // přepínač PDPS/RDS jen na staničení, ne u sítí/řezů/PAU
 
   // Resetuj iframe vždy před novým načtením
   var frame = document.getElementById('pdf-frame');
@@ -3492,18 +3494,19 @@ function _docIdxInView(){
   for(var i=0;i<docPages.length;i++){ if(_docGroupOf(docPages[i])===window._docView) out.push(i); }
   return out;
 }
-// Přepínač PDPS | RDS | ⛔ Neplatné nad záložkami. Skupiny bez výkresů se nezobrazí;
-// je-li neprázdná jen jedna skupina, přepínač se schová úplně.
+// Přepínač PDPS | RDS | ⛔ Neplatné nad záložkami. V panelu staničení (_docSwitchMode)
+// se PDPS i RDS ukážou VŽDY (i prázdné – ať je vidět, kam nahrát), ⛔ Neplatné jen když nějaký je.
+// Jinde (sítě/řezy/PAU) je přepínač skrytý.
 function renderDocSwitch(){
   var sw=document.getElementById('pdf-viewswitch'); if(!sw) return;
+  if(!window._docSwitchMode){ sw.style.display='none'; sw.innerHTML=''; return; }
   var cnt={PDPS:0,RDS:0,NEPLATNE:0};
   docPages.forEach(function(p){ cnt[_docGroupOf(p)]++; });
   var groups=[
-    {k:'PDPS',     lbl:'📘 PDPS'},
-    {k:'RDS',      lbl:'📗 RDS'},
-    {k:'NEPLATNE', lbl:'⛔ Neplatné'}
-  ].filter(function(g){ return cnt[g.k]>0; });
-  if(groups.length<=1){ sw.style.display='none'; sw.innerHTML=''; return; }
+    {k:'PDPS', lbl:'📘 PDPS'},
+    {k:'RDS',  lbl:'📗 RDS'}
+  ];
+  if(cnt.NEPLATNE>0) groups.push({k:'NEPLATNE', lbl:'⛔ Neplatné'});
   sw.style.display='flex';
   sw.innerHTML='';
   groups.forEach(function(g){
@@ -3606,6 +3609,7 @@ function renderDocPage(realKm) {
   if(docPages.length===0){
     if(frameWrap) frameWrap.style.display='none';
     if(openWrap)  openWrap.style.display='none';
+    nosit.innerHTML='<span>📄</span><div>Pro toto staničení nejsou výkresy k dispozici</div>';
     nosit.style.display='flex';
     title.textContent='Výkresy — km '+(realKm?fmtKm(realKm):'');
     ctr.textContent=''; btnP.disabled=true; btnN.disabled=true;
@@ -3613,6 +3617,24 @@ function renderDocPage(realKm) {
     var sw0=document.getElementById('pdf-viewswitch'); if(sw0){ sw0.style.display='none'; sw0.innerHTML=''; }
     var ib0=document.getElementById('pdf-invalid-bar'); if(ib0) ib0.style.display='none';
     return;
+  }
+
+  // Feature 1: v režimu přepínače – zvolená skupina (PDPS/RDS/Neplatné) je prázdná → hláška, ne cizí PDF
+  if(window._docSwitchMode){
+    var vlist0 = _docIdxInView();
+    if(vlist0.length===0){
+      if(frameWrap) frameWrap.style.display='none';
+      if(openWrap)  openWrap.style.display='none';
+      var lbl = (window._docView==='RDS') ? 'RDS výkresy' : (window._docView==='NEPLATNE' ? 'neplatné výkresy' : 'PDPS výkresy');
+      nosit.innerHTML='<span>📄</span><div>Na tomto úseku zatím nejsou žádné '+lbl+'.'+(window._docView==='RDS'?'<br><span style="font-size:12px;opacity:.8;">Nahraj je přes ➕ nahoře.</span>':'')+'</div>';
+      nosit.style.display='flex';
+      title.textContent = (window._docView==='RDS'?'📗 RDS':(window._docView==='NEPLATNE'?'⛔ Neplatné':'📘 PDPS'));
+      ctr.textContent=''; btnP.disabled=true; btnN.disabled=true;
+      if(invBtn) invBtn.style.display='none';
+      var ibx=document.getElementById('pdf-invalid-bar'); if(ibx) ibx.style.display='none';
+      return;
+    }
+    if(vlist0.indexOf(docPageIdx)===-1) docPageIdx = vlist0[0];
   }
 
   var p = docPages[docPageIdx];

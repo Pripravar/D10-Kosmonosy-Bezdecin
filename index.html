@@ -3477,10 +3477,11 @@ function rebuildPropPanel(){
   if(panel && panel.classList.contains('open') && window._currentProp) openPropPanel(window._currentProp);
 }
 // Tlačítko 🗄️/♻️ v panelu – zneplatní/obnoví PRÁVĚ ZOBRAZENÝ výkres (statický i nahraný)
-function toggleInvalidateCurrentDoc(){
+// Sdílené jádro zneplatnění/obnovení JEDNOHO výkresu (platí pro staničení i bodové objekty).
+// p = aktuální stránka panelu (má .soubor/.nazev), rebuildFn = překreslení příslušného panelu.
+function _invalidateDrawing(p, rebuildFn){
   if(!window.currentUser){ showToast('Pro zneplatnění se přihlas (úkolníček → přihlášení)', 3500); return; }
-  if(!docPages || !docPages.length) return;
-  var p = docPages[docPageIdx]; if(!p || !p.soubor) return;
+  if(!p || !p.soubor) return;
   // 1) Uživatelský nahraný výkres → řídí se příznakem `neplatny`
   var uv = vykresyData.filter(function(d){ return d.soubor === p.soubor; })[0];
   if(uv){
@@ -3494,7 +3495,7 @@ function toggleInvalidateCurrentDoc(){
       ? { neplatny:true, neplatnyDuvod:(duvodU||'').trim(), zneplatnilUid:window.currentUser.uid, zneplatnilJmeno:(window.currentUser.name||''), zneplatnenoTs:Date.now() }
       : { neplatny:false, neplatnyDuvod:null, nahrazenoKym:null });
     showToast(toInvalidU ? 'Výkres zneplatněn' : 'Výkres obnoven', 1800);
-    rebuildDocPanel();
+    if(rebuildFn) rebuildFn();
     return;
   }
   // 2) Statický výkres (DOCS_*) → DB seznam /vykres_revize podle cesty souboru
@@ -3511,7 +3512,17 @@ function toggleInvalidateCurrentDoc(){
     invalidStaticSoubory[p.soubor] = { key: ref.key, duvod:(duvodS||'').trim() };   // optimisticky
     showToast('Výkres zneplatněn', 1800);
   }
-  rebuildDocPanel();
+  if(rebuildFn) rebuildFn();
+}
+// Staničení (pdf-panel)
+function toggleInvalidateCurrentDoc(){
+  if(!docPages || !docPages.length) return;
+  _invalidateDrawing(docPages[docPageIdx], rebuildDocPanel);
+}
+// Bodové objekty (prop-panel: mosty SO 201, propustky)
+function togglePropInvalidate(){
+  if(!propPages || !propPages.length) return;
+  _invalidateDrawing(propPages[propPageIdx], rebuildPropPanel);
 }
 
 function openDocPanel(pages, realKm, startIdx, switchMode) {
@@ -9306,6 +9317,7 @@ function renderPropPage(idx) {
     }
     if(title) title.textContent=(window._propView==='RDS'?'📗 RDS':(window._propView==='NEPLATNE'?'⛔ Neplatné':'📘 PDPS'));
     document.querySelectorAll('#prop-tabs .pdf-tab').forEach(function(b){ b.classList.remove('active'); });
+    var pib0=document.getElementById('btn-prop-invalidate'); if(pib0) pib0.style.display='none';
     return;
   }
   if(vlist.indexOf(idx)===-1) idx=vlist[0];
@@ -9313,6 +9325,12 @@ function renderPropPage(idx) {
   propPageIdx = idx;
   var p = propPages[idx];
   currentPropSrc = p.soubor;
+  var pInvBtn=document.getElementById('btn-prop-invalidate');
+  if(pInvBtn){
+    pInvBtn.style.display='inline-flex';
+    if(p._invalid){ pInvBtn.textContent='♻️'; pInvBtn.title='Obnovit výkres jako platný'; }
+    else { pInvBtn.textContent='🗄️'; pInvBtn.title='Zneplatnit tento výkres'; }
+  }
   document.querySelectorAll('#prop-tabs .pdf-tab').forEach(function(b){ b.classList.toggle('active', parseInt(b.getAttribute('data-idx'),10)===idx); });
   var openWrap = document.getElementById('prop-open-wrap');
   // Aktualizuj titulek a label
@@ -19331,6 +19349,7 @@ function copyDiaryExport(){
     <button id="btn-prop-zoom-in"  onclick="pdfZoom(+1)" title="Zvětšit" style="display:none;background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px 6px;font-weight:700;">+</button>
     <button onclick="openPropPdfExternal()" title="Otevřít v Safari s plnou lupou" style="background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:4px 6px;">↗</button>
     <button id="btn-prop-add-vykres" onclick="openVykresUpload(window._propPanelKm, window._propPanelSO)" title="Přidat výkres k tomuto SO" style="background:var(--accent);border:none;border-radius:6px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;padding:0 8px;flex-shrink:0;min-width:44px;min-height:44px;">➕</button>
+    <button id="btn-prop-invalidate" onclick="togglePropInvalidate()" title="Zneplatnit tento výkres" style="background:none;border:none;color:var(--text2);font-size:17px;cursor:pointer;padding:4px 6px;flex-shrink:0;min-width:44px;min-height:44px;">🗄️</button>
     <button id="btn-prop-fs" onclick="togglePropFs()">⛶</button>
     <button id="btn-prop-close" onclick="closePropPanel()">✕</button>
   </div>

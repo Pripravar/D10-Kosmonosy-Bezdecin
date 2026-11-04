@@ -9131,7 +9131,7 @@ function openPropPanel(prop) {
     var _seenSb = {};
     propPages.forEach(function(pp){ if(pp && pp.soubor) _seenSb[pp.soubor] = true; });
     (vykresyData || []).forEach(function(d){
-      if(!d || d.neplatny || !d.soubor || _seenSb[d.soubor]) return;
+      if(!d || !d.soubor || _seenSb[d.soubor]) return;   // neplatné ponecháme → jdou do sekce ⛔ Neplatné
       var match;
       if(window._propPanelSO){
         match = (d.so === window._propPanelSO);
@@ -9141,11 +9141,18 @@ function openPropPanel(prop) {
                  && window._propPanelKm >= od && window._propPanelKm <= doKm);
       }
       if(match){
-        propPages.push({ soubor:d.soubor, nazev:(d.nazev||'Výkres'), typ:(d.kat||'📎 Výkres') });
+        propPages.push({ soubor:d.soubor, nazev:(d.nazev||'Výkres'), typ:(d.kat||'📎 Výkres'),
+          dokTyp:(d.dokTyp||'PDPS'), _invalid:!!d.neplatny, _duvod:(d.neplatnyDuvod||''), _by:(d.zneplatnilJmeno||''), _ts:(d.zneplatnenoTs||0) });
         _seenSb[d.soubor] = true;
       }
     });
   } catch(e){ console.warn('prop user výkresy:', e); }
+  // Statické výkresy objektu = PDPS (projekt); neplatné statické vyřeší invalidStaticSoubory
+  propPages.forEach(function(p){
+    if(!p.dokTyp) p.dokTyp='PDPS';
+    var si = p.soubor && invalidStaticSoubory[p.soubor];
+    if(si){ p._invalid=true; if(!p._duvod){ p._duvod=si.duvod||''; p._by=si.jmeno||''; p._ts=si.ts||0; } }
+  });
 
   var panel = document.getElementById('prop-panel');
   var title = document.getElementById('prop-title');
@@ -9155,36 +9162,109 @@ function openPropPanel(prop) {
   // Odemkni viewport, ať iOS Safari může na iframu pinch-zoomovat PDF
   unlockViewport();
 
-  // Záložky
-  var tabs = document.getElementById('prop-tabs');
-  tabs.innerHTML = '';
-  propPages.forEach(function(p, i) {
-    var btn = document.createElement('button');
-    btn.className = 'pdf-tab' + (i===0?' active':'');
-    btn.textContent = p.typ;
-    btn.onclick = (function(idx){ return function(){
-      renderPropPage(idx);
-    };})(i);
-    tabs.appendChild(btn);
-  });
+  // Očísluj opakující se štítky (víc situací / řezů), ať jdou záložky rozlišit
+  var _ptot={}, _pseen={};
+  propPages.forEach(function(p){ _ptot[p.typ]=(_ptot[p.typ]||0)+1; });
+  propPages.forEach(function(p){ if(_ptot[p.typ]>1){ _pseen[p.typ]=(_pseen[p.typ]||0)+1; p.typ=p.typ+' '+_pseen[p.typ]; } });
 
-  // Zobraz PDF v prop-content iframe
-  renderPropPage(0);
+  // Feature 1: přepínač PDPS / RDS / ⛔ Neplatné i u bodových objektů (mosty, propustky)
+  propPageIdx = 0;
+  window._propView = _docGroupOf(propPages[0]) || 'PDPS';
+  renderPropSwitch();
+  renderPropTabs();
+  renderPropPage(propPageIdx);
 
   // Načíst poznámky propustku
   loadPropNotes(prop.id);
 }
 
+// Feature 1 (bodové objekty): reálné indexy propPages v aktuálním pohledu.
+function _propIdxInView(){
+  var out=[];
+  for(var i=0;i<propPages.length;i++){ if(_docGroupOf(propPages[i])===window._propView) out.push(i); }
+  return out;
+}
+// PDPS i RDS vždy (i prázdné), ⛔ Neplatné jen když nějaký je.
+function renderPropSwitch(){
+  var sw=document.getElementById('prop-viewswitch'); if(!sw) return;
+  var cnt={PDPS:0,RDS:0,NEPLATNE:0};
+  propPages.forEach(function(p){ cnt[_docGroupOf(p)]++; });
+  var groups=[{k:'PDPS',lbl:'📘 PDPS'},{k:'RDS',lbl:'📗 RDS'}];
+  if(cnt.NEPLATNE>0) groups.push({k:'NEPLATNE',lbl:'⛔ Neplatné'});
+  sw.style.display='flex'; sw.innerHTML='';
+  groups.forEach(function(g){
+    var on=(window._propView===g.k);
+    var b=document.createElement('button');
+    b.textContent=g.lbl+' ('+cnt[g.k]+')';
+    b.style.cssText='flex:1;padding:7px 8px;font-size:12px;font-weight:700;cursor:pointer;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;'+
+      (on?'background:var(--accent);color:#fff;':'background:var(--panel);color:var(--text2);');
+    b.onclick=(function(k){return function(){ setPropView(k); };})(g.k);
+    sw.appendChild(b);
+  });
+}
+function renderPropTabs(){
+  var tabs=document.getElementById('prop-tabs'); if(!tabs) return;
+  tabs.innerHTML='';
+  _propIdxInView().forEach(function(idx){
+    var p=propPages[idx];
+    var btn=document.createElement('button');
+    btn.className='pdf-tab'+(idx===propPageIdx?' active':'');
+    btn.setAttribute('data-idx', idx);
+    btn.textContent=p.typ;
+    if(p._invalid){ btn.style.opacity='0.6'; btn.style.fontStyle='italic'; btn.title='Zneplatněný výkres'; }
+    btn.onclick=(function(i){return function(){ renderPropPage(i); };})(idx);
+    tabs.appendChild(btn);
+  });
+}
+function setPropView(v){
+  window._propView=v;
+  var list=_propIdxInView();
+  if(list.length){ propPageIdx=list[0]; }
+  renderPropSwitch();
+  renderPropTabs();
+  renderPropPage(propPageIdx);
+}
+
 function renderPropPage(idx) {
+  var frameEl  = document.getElementById('prop-iframe');
+  var emptyEl  = document.getElementById('prop-empty');
+  var title    = document.getElementById('prop-title');
+  var invBar   = document.getElementById('prop-invalid-bar');
+  // Feature 1: zvolená skupina (PDPS/RDS/Neplatné) prázdná → hláška místo cizího PDF
+  var vlist = _propIdxInView();
+  if(vlist.length===0){
+    if(frameEl) frameEl.style.display='none';
+    var cw=document.getElementById('prop-canvas-wrap'); if(cw) cw.style.display='none';
+    if(invBar) invBar.style.display='none';
+    if(emptyEl){
+      var lbl=(window._propView==='RDS')?'RDS výkresy':(window._propView==='NEPLATNE'?'neplatné výkresy':'PDPS výkresy');
+      emptyEl.innerHTML='<div style="font-size:30px;">📄</div><div>U tohoto objektu zatím nejsou žádné '+lbl+'.'+(window._propView==='RDS'?'<br><span style="font-size:12px;opacity:.8;">Nahraj je přes ➕ nahoře.</span>':'')+'</div>';
+      emptyEl.style.display='flex';
+    }
+    if(title) title.textContent=(window._propView==='RDS'?'📗 RDS':(window._propView==='NEPLATNE'?'⛔ Neplatné':'📘 PDPS'));
+    document.querySelectorAll('#prop-tabs .pdf-tab').forEach(function(b){ b.classList.remove('active'); });
+    return;
+  }
+  if(vlist.indexOf(idx)===-1) idx=vlist[0];
+  if(emptyEl) emptyEl.style.display='none';
   propPageIdx = idx;
   var p = propPages[idx];
   currentPropSrc = p.soubor;
-  document.querySelectorAll('#prop-tabs .pdf-tab').forEach(function(b,i){ b.classList.toggle('active',i===idx); });
+  document.querySelectorAll('#prop-tabs .pdf-tab').forEach(function(b){ b.classList.toggle('active', parseInt(b.getAttribute('data-idx'),10)===idx); });
   var openWrap = document.getElementById('prop-open-wrap');
-  var frameEl  = document.getElementById('prop-iframe');
   // Aktualizuj titulek a label
-  var title = document.getElementById('prop-title');
   if(title) title.textContent = p.nazev || p.typ || 'Propustek';
+  // Feature 1: červený pruh u zneplatněného výkresu
+  if(p._invalid){
+    if(!invBar){
+      invBar=document.createElement('div'); invBar.id='prop-invalid-bar';
+      invBar.style.cssText='background:#c0392b;color:#fff;font-size:12px;line-height:1.4;padding:7px 10px;flex-shrink:0;';
+      var pc=document.getElementById('prop-content'); pc.parentNode.insertBefore(invBar, pc);
+    }
+    var det=[]; if(p._by) det.push('zneplatnil '+escapeHtml(p._by)); if(p._ts) det.push(new Date(p._ts).toLocaleDateString('cs-CZ'));
+    invBar.innerHTML='⛔ <b>NEPLATNÝ VÝKRES</b>'+(p._duvod?(' — '+escapeHtml(p._duvod)):'')+(det.length?('<div style="opacity:.85;margin-top:2px;">'+det.join(' · ')+'</div>'):'');
+    invBar.style.display='block';
+  } else if(invBar){ invBar.style.display='none'; }
   // VŽDY iframe (jako Votice). Pro pinch-zoom otevři v Safari přes ↗.
   var canvasWrap = document.getElementById('prop-canvas-wrap');
   var propZoomIn  = document.getElementById('btn-prop-zoom-in');
@@ -9277,6 +9357,9 @@ function closePropPanel() {
   document.getElementById('prop-note-form').classList.remove('open');
   var fr = document.getElementById('prop-iframe');
   if(fr) fr.src = 'about:blank';
+  var sw=document.getElementById('prop-viewswitch'); if(sw){ sw.style.display='none'; sw.innerHTML=''; }
+  var ib=document.getElementById('prop-invalid-bar'); if(ib) ib.style.display='none';
+  var em=document.getElementById('prop-empty'); if(em) em.style.display='none';
   currentPropId = null;
   currentPropSrc = '';
   lockViewport();
@@ -19188,8 +19271,10 @@ function copyDiaryExport(){
     <button id="btn-prop-fs" onclick="togglePropFs()">⛶</button>
     <button id="btn-prop-close" onclick="closePropPanel()">✕</button>
   </div>
+  <div id="prop-viewswitch" style="display:none;gap:6px;padding:6px 10px 0;background:var(--bg);flex-shrink:0;"></div>
   <div id="prop-tabs"></div>
   <div id="prop-content" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+    <div id="prop-empty" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--text2);text-align:center;padding:24px;font-size:14px;"></div>
     <iframe id="prop-iframe" src="" style="flex:1;width:100%;border:none;display:none;touch-action:pan-x pan-y pinch-zoom;"></iframe>
     <!-- iOS canvas náhled přes PDF.js -->
     <div id="prop-canvas-wrap" style="flex:1;display:none;flex-direction:column;background:#333;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y pinch-zoom;padding:6px;">
@@ -20246,6 +20331,7 @@ function copyDiaryExport(){
 <div id="kzp-modal">
   <div class="km-box">
     <h3 id="kzp-modal-title">➕ Nová položka KZP</h3>
+    <div style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;line-height:1.45;margin-bottom:4px;">💡 Tohle je jen <b>odkaz</b> na už nahrané PDF (URL / cesta v repu).<br><b>Nahrát soubor TePř / KZP z počítače</b> (i více naráz) můžeš v panelu <b>📋 Dokumenty</b>.</div>
     <input type="hidden" id="kzp-id">
 
     <label style="font-size:11px;color:var(--text2);text-transform:uppercase;">Stavební objekt (SO)</label>

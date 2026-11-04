@@ -1441,7 +1441,7 @@ document.addEventListener('touchend', function(e){
   <button id="btn-tasks" onclick="openTasksPanel()" title="Úkoly" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">✅<span class="task-badge" id="task-badge">0</span></button>
   <button id="btn-chat" onclick="openChatPanel()" title="Chat stavby" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">💬<span class="task-badge" id="chat-badge">0</span></button>
   <button id="btn-denik" onclick="openDiaryPanel()" title="Deník stavby" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">📓</button>
-  <button id="btn-kzp"   onclick="openKzpPanel()"   title="Kvalita / KZP"   style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">🧪</button>
+  <!-- 🧪 Kvalita/KZP (starý URL katalog) odebrán z lišty 2026-11-04 – vše KZP/TePř je pod 📋 Dokumenty (nahrání souboru). Panel kódu ponechán, jen není v UI. -->
   <button id="btn-zkousky" onclick="openZkouskyPanel()" title="Zkoušky na stavbě (laboratorní průvodka)" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">🔬</button>
   <button id="btn-dodaci" onclick="openDodaciPanel()" title="Dodací listy (evidence dodávek)" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">🚚</button>
   <button id="btn-dokumenty" onclick="openDokumentyPanel()" title="Dokumenty – KZP, TePř, protokoly zkoušek" style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:15px;cursor:pointer;">📋</button>
@@ -1912,9 +1912,14 @@ document.addEventListener('touchend', function(e){
           <option value="cistopis">✅ Čistopis (schválená verze)</option>
           <option value="koncept">📝 Koncept (rozpracováno)</option>
         </select>
-        <label style="font-size:11px;color:var(--text2);">PDF soubor</label>
-        <input id="dok-file" class="task-field" type="file" accept="application/pdf,.pdf">
-        <button type="button" onclick="submitDokument()" style="margin-top:10px;width:100%;background:var(--accent);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">📤 Nahrát dokument</button>
+        <label style="font-size:11px;color:var(--text2);">PDF soubor(y) – můžeš i více naráz</label>
+        <div id="dok-drop" style="border:2px dashed var(--border);border-radius:10px;padding:16px 12px;text-align:center;cursor:pointer;background:var(--panel2);">
+          <div style="font-size:13px;color:var(--text2);">📥 Přetáhni sem PDF nebo <b style="color:var(--accent);">klikni pro výběr</b><br><span style="font-size:11px;opacity:.75;">(TePř/KZP – lze vybrat i více dokumentů najednou)</span></div>
+          <div id="dok-file-count" style="font-size:11px;color:var(--accent);margin-top:6px;word-break:break-word;"></div>
+          <input id="dok-file" type="file" accept="application/pdf,.pdf" multiple style="display:none;">
+        </div>
+        <div id="dok-status" style="font-size:12px;color:var(--text2);min-height:16px;margin-top:6px;"></div>
+        <button type="button" onclick="submitDokument()" style="margin-top:8px;width:100%;background:var(--accent);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">📤 Nahrát dokument(y)</button>
       </div>
     </div>
   </div>
@@ -2235,8 +2240,12 @@ document.addEventListener('touchend', function(e){
         <input id="vyk-nazev" type="text" placeholder="např. Detail vpusti km 2,4" style="padding:12px;font-size:15px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);">
       </label>
       <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2);">
-        PDF soubor (max ~10 MB)
-        <input id="vyk-file" type="file" accept="application/pdf,.pdf" style="padding:10px;font-size:14px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);">
+        PDF soubor(y) – můžeš i více naráz (celý SO), max ~10 MB / kus
+        <div id="vyk-drop" style="border:2px dashed var(--border);border-radius:10px;padding:16px 12px;text-align:center;cursor:pointer;background:var(--panel2);">
+          <div style="font-size:13px;color:var(--text2);">📥 Přetáhni sem PDF nebo <b style="color:var(--accent2);">klikni pro výběr</b><br><span style="font-size:11px;opacity:.75;">(lze vybrat i více výkresů najednou)</span></div>
+          <div id="vyk-file-count" style="font-size:11px;color:var(--accent2);margin-top:6px;word-break:break-word;"></div>
+          <input id="vyk-file" type="file" accept="application/pdf,.pdf" multiple style="display:none;">
+        </div>
       </label>
       <div id="vyk-status" style="font-size:12px;color:var(--text2);min-height:16px;"></div>
       <button id="vyk-submit" onclick="submitVykresUpload()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;min-height:48px;">
@@ -3095,10 +3104,12 @@ function openVykresUpload(realKm, preferSO){
   if(preferSO && folders.indexOf(preferSO)!==-1) soSel.value = preferSO;
   document.getElementById('vyk-nazev').value = '';
   document.getElementById('vyk-file').value = '';
+  var vcnt=document.getElementById('vyk-file-count'); if(vcnt) vcnt.textContent='';
   document.getElementById('vyk-status').textContent = '';
   _vykReplaceKey = null;
   var subBtn = document.getElementById('vyk-submit'); if(subBtn) subBtn.textContent = 'Nahrát výkres';
   document.getElementById('vykres-modal').style.display = 'flex';
+  _setupPdfDrop('vyk-drop','vyk-file','vyk-file-count');
   renderVykresList();
 }
 function closeVykresUpload(){
@@ -3204,11 +3215,65 @@ function startUpdateVykres(key){
   document.getElementById('vyk-km-do').value = fmtKmInputVal(d.kmDo);
   document.getElementById('vyk-nazev').value = d.nazev || '';
   document.getElementById('vyk-file').value = '';
+  var uc=document.getElementById('vyk-file-count'); if(uc) uc.textContent='';
   var btn = document.getElementById('vyk-submit');
   if(btn) btn.textContent = '⬆️ Nahrát novou verzi (starou zneplatní)';
   document.getElementById('vyk-status').textContent = '🔄 Aktualizace „'+(d.nazev||'')+'": vyber nové PDF a nahraj.';
   var fi = document.getElementById('vyk-file'); if(fi && fi.scrollIntoView) fi.scrollIntoView({block:'center'});
 }
+// ── Sdílené helpery pro nahrávání PDF (více souborů + drag & drop) ──────────
+// Bezpečný název souboru pro Storage (bez diakritiky/mezer).
+function _safePdfName(name){
+  return String(name||'').replace(/\.pdf$/i,'')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60) || 'soubor';
+}
+// Nahraje JEDEN PDF soubor do EU Storage na danou cestu, vrací Promise(cesta).
+function _uploadPdfFile(file, storagePath){
+  return new Promise(function(resolve, reject){
+    var r = new FileReader();
+    r.onload = function(){
+      var b64 = String(r.result).replace(/^data:[^;]+;base64,/, '');
+      _privStorage().ref(storagePath).putString(b64, 'base64', { contentType:'application/pdf' })
+        .then(function(){ try{ delete _fileUrlCache[storagePath]; }catch(e){} resolve(storagePath); })
+        .catch(reject);
+    };
+    r.onerror = function(){ reject(new Error('Soubor se nepodařilo přečíst')); };
+    r.readAsDataURL(file);
+  });
+}
+// Vytvoří z PDF souborů seznam s validací. Vrací {ok:[File], err:[{name,why}]}.
+function _collectPdfFiles(fileList){
+  var ok=[], err=[];
+  Array.prototype.slice.call(fileList||[]).forEach(function(f){
+    if(!/\.pdf$/i.test(f.name)) err.push({name:f.name, why:'není PDF'});
+    else if(f.size > 10*1024*1024) err.push({name:f.name, why:'> 10 MB'});
+    else ok.push(f);
+  });
+  return {ok:ok, err:err};
+}
+// Napojí drag & drop + klik na dropzónu + počítadlo vybraných souborů (jednorázově).
+function _setupPdfDrop(dropId, inputId, countId){
+  var zone=document.getElementById(dropId), input=document.getElementById(inputId);
+  if(!zone || !input || zone.dataset.bound) return;
+  zone.dataset.bound='1';
+  function refreshCount(){
+    var c=document.getElementById(countId); if(!c) return;
+    var n=input.files?input.files.length:0;
+    c.textContent = n ? ('✅ vybráno souborů: '+n+(n>1?'':'')+' — '+Array.prototype.slice.call(input.files).map(function(f){return f.name;}).slice(0,3).join(', ')+(n>3?' …':'')) : '';
+  }
+  zone.addEventListener('click', function(e){ if(e.target!==input) input.click(); });
+  input.addEventListener('change', refreshCount);
+  ['dragenter','dragover'].forEach(function(ev){ zone.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); zone.style.borderColor='var(--accent2)'; zone.style.background='rgba(255,255,255,0.05)'; }); });
+  ['dragleave','dragend'].forEach(function(ev){ zone.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); zone.style.borderColor=''; zone.style.background=''; }); });
+  zone.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation(); zone.style.borderColor=''; zone.style.background='';
+    var dt=e.dataTransfer; if(!dt || !dt.files || !dt.files.length) return;
+    try { input.files = dt.files; } catch(_){ }
+    refreshCount();
+  });
+}
+
 function submitVykresUpload(){
   var user = (typeof fbAuth!=='undefined' && fbAuth) ? fbAuth.currentUser : null;
   if(!user){ showToast('Nejsi přihlášen', 3000); return; }
@@ -3216,76 +3281,62 @@ function submitVykresUpload(){
   var kat  = document.getElementById('vyk-kat').value;
   var kmOd = parseKmInput(document.getElementById('vyk-km-od').value);
   var kmDo = parseKmInput(document.getElementById('vyk-km-do').value);
-  var nazev= document.getElementById('vyk-nazev').value.trim();
+  var nazevInput = document.getElementById('vyk-nazev').value.trim();
   var dokTyp = (document.getElementById('vyk-doktyp')?document.getElementById('vyk-doktyp').value:'RDS')||'RDS';
   var fileInput = document.getElementById('vyk-file');
-  var file = fileInput.files && fileInput.files[0];
   var status = document.getElementById('vyk-status');
   if(!so){ status.textContent='⚠️ Vyber SO objekt'; return; }
   if(kmOd==null || kmDo==null){ status.textContent='⚠️ Vyplň km od i km do'; return; }
   if(kmDo < kmOd){ var t=kmOd; kmOd=kmDo; kmDo=t; }
-  if(!file){ status.textContent='⚠️ Vyber PDF soubor'; return; }
-  if(!/\.pdf$/i.test(file.name)){ status.textContent='⚠️ Soubor musí být PDF'; return; }
-  if(file.size > 10*1024*1024){ status.textContent='⚠️ PDF je větší než 10 MB'; return; }
-  if(!nazev) nazev = file.name.replace(/\.pdf$/i,'');
+  var col = _collectPdfFiles(fileInput.files);
+  if(!col.ok.length){ status.textContent = col.err.length ? ('⚠️ '+col.err.map(function(e){return e.name+' ('+e.why+')';}).join(', ')) : '⚠️ Vyber PDF soubor(y)'; return; }
 
+  var files = col.ok, total = files.length;
+  var author = (window.currentUser && window.currentUser.name) || user.displayName || '';
   var btn = document.getElementById('vyk-submit');
   btn.disabled = true; btn.style.opacity='0.6';
-  status.textContent = '⏳ Nahrávám…';
+  var done=0, fail=0;
+  status.textContent = '⏳ Nahrávám 0/'+total+'…';
 
-  // Bezpečný název souboru v repu (bez diakritiky/mezer), unikátní
-  var safe = file.name.replace(/\.pdf$/i,'')
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60) || 'vykres';
-  var repoPath = so + '/' + safe + '_' + Date.now() + '.pdf';
-
-  var reader = new FileReader();
-  reader.onload = function(){
-    var base64 = String(reader.result).replace(/^data:application\/pdf;base64,/, '').replace(/^data:[^;]+;base64,/, '');
-    var storagePath = 'pdf/' + repoPath;   // ukládá se rovnou do EU Storage; do DB jde CESTA
-    _privStorage().ref(storagePath).putString(base64, 'base64', { contentType:'application/pdf' })
-    .then(function(){
-      delete _fileUrlCache[storagePath];
-      var rec = {
-        so: so, kat: kat, dokTyp: dokTyp, kmOd: kmOd, kmDo: kmDo, nazev: nazev,
-        soubor: storagePath, uid: user.uid,
-        author: (window.currentUser && window.currentUser.name) || user.displayName || '',
-        ts: Date.now()
-      };
+  function uploadIdx(i){
+    if(i >= total){
+      // hotovo
+      btn.disabled=false; btn.style.opacity='1'; btn.textContent = total>1 ? 'Nahrát výkresy' : 'Nahrát výkres';
+      var okN = done;
+      status.textContent = (fail? ('⚠️ Nahráno '+okN+' z '+total+' ('+fail+' selhalo)') : ('✅ Hotovo – nahráno '+okN+(okN>1?' výkresů':' výkres')))
+                           + (col.err.length? (' · přeskočeno: '+col.err.map(function(e){return e.name;}).join(', ')) : '');
+      showToast(fail? ('Nahráno '+okN+'/'+total) : (okN>1?('Nahráno '+okN+' výkresů'):'Výkres nahrán'), 2200);
+      if(okN) logActivity('📐', 'nahrál/a '+(okN>1?(okN+' výkresů'):'výkres') + (so?(' k '+String(so).replace('_',' ')):''));
+      fileInput.value='';
+      document.getElementById('vyk-nazev').value='';
+      var cnt=document.getElementById('vyk-file-count'); if(cnt) cnt.textContent='';
+      renderVykresList();
+      try { if(typeof rebuildPropPanel==='function') rebuildPropPanel(); } catch(e){}
+      try { if(typeof rebuildDocPanel==='function') rebuildDocPanel(); } catch(e){}
+      return;
+    }
+    var file = files[i];
+    // Název: u 1 souboru respektuj ruční pole, u více ber z názvu každého souboru
+    var nazev = (total===1 && nazevInput) ? nazevInput : file.name.replace(/\.pdf$/i,'');
+    var storagePath = 'pdf/' + so + '/' + _safePdfName(file.name) + '_' + Date.now() + '_' + i + '.pdf';
+    _uploadPdfFile(file, storagePath).then(function(){
+      var rec = { so:so, kat:kat, dokTyp:dokTyp, kmOd:kmOd, kmDo:kmDo, nazev:nazev,
+        soubor:storagePath, uid:user.uid, author:author, ts:Date.now() };
       var newRef = db.ref('vykresy').push(rec);
-      newRef.then(function(){
-        if(_vykReplaceKey){
-          db.ref('vykresy/'+_vykReplaceKey).update({
-            neplatny:true, zneplatnilUid:user.uid, zneplatnenoTs:Date.now(), nahrazenoKym:newRef.key
-          });
+      return newRef.then(function(){
+        // Nahrazení staré verze (zneplatnění) jen u JEDNOHO souboru
+        if(total===1 && _vykReplaceKey){
+          db.ref('vykresy/'+_vykReplaceKey).update({ neplatny:true, zneplatnilUid:user.uid, zneplatnenoTs:Date.now(), nahrazenoKym:newRef.key });
           _vykReplaceKey = null;
-          status.textContent = '✅ Nová verze nahrána, stará zneplatněna';
-          showToast('Výkres aktualizován', 2200);
-        } else {
-          status.textContent = '✅ Hotovo';
-          showToast('Výkres nahrán', 2000);
-          logActivity('📐', 'nahrál/a výkres' + (so?(' k '+String(so).replace('_',' ')):'') + (nazev?(' („'+nazev+'")'):''));
         }
-        btn.disabled=false; btn.style.opacity='1'; btn.textContent='Nahrát výkres';
-        document.getElementById('vyk-file').value='';
-        document.getElementById('vyk-nazev').value='';
-        renderVykresList();
-        // Obnov panely pod modalem, ať se nový výkres objeví hned (bez znovuotevření objektu)
-        try { if(typeof rebuildPropPanel==='function') rebuildPropPanel(); } catch(e){}
-        try { if(typeof rebuildDocPanel==='function') rebuildDocPanel(); } catch(e){}
-      }).catch(function(e){
-        status.textContent='⚠️ Nahráno do Storage, ale zápis odkazu selhal: '+(e&&e.message||'');
-        btn.disabled=false; btn.style.opacity='1';
       });
-    })
-    .catch(function(e){
-      console.error('uploadVykres exc:', e);
-      status.textContent = '❌ '+((e&&(e.code||e.message))||'chyba uploadu');
-      btn.disabled=false; btn.style.opacity='1';
+    }).then(function(){
+      done++; status.textContent='⏳ Nahrávám '+done+'/'+total+'…'; uploadIdx(i+1);
+    }).catch(function(e){
+      console.error('uploadVykres exc:', e); fail++; status.textContent='⏳ Nahrávám '+(done+fail)+'/'+total+' (chyba u '+file.name+')…'; uploadIdx(i+1);
     });
-  };
-  reader.onerror = function(){ status.textContent='❌ Soubor se nepodařilo přečíst'; btn.disabled=false; btn.style.opacity='1'; };
-  reader.readAsDataURL(file);
+  }
+  uploadIdx(0);
 }
 
 // Rozdělí stránky na platné + neplatné (neplatné = uživatelský výkres s neplatny, NEBO
@@ -5149,6 +5200,8 @@ function openDokumentyPanel(){
   if(!hasPerm('dokumenty')){ showToast('📋 Dokumenty Ti admin nepovolil', 3000); return; }
   trackEvent('dokumenty');
   document.getElementById('dokumenty-modal').style.display='flex';
+  _setupPdfDrop('dok-drop','dok-file','dok-file-count');
+  var ds=document.getElementById('dok-status'); if(ds) ds.textContent='';
   renderDokumentyList();
 }
 function closeDokumentyPanel(){ document.getElementById('dokumenty-modal').style.display='none'; }
@@ -5189,30 +5242,40 @@ function submitDokument(){
   if(!user || !window.currentUser){ showToast('Přihlaš se', 2000); return; }
   if(!hasPerm('dokumenty')){ showToast('📋 Dokumenty Ti admin nepovolil', 3000); return; }
   var kat=document.getElementById('dok-kat').value||'ostatni';
-  var nazev=(document.getElementById('dok-nazev').value||'').trim();
+  var nazevInput=(document.getElementById('dok-nazev').value||'').trim();
   var so=(document.getElementById('dok-so').value||'').trim();
   var stav=(document.getElementById('dok-stav')?document.getElementById('dok-stav').value:'cistopis')||'cistopis';
-  var fi=document.getElementById('dok-file'); var file=fi.files&&fi.files[0];
-  if(!file){ showToast('Vyber PDF soubor', 2000); return; }
-  if(!/\.pdf$/i.test(file.name)){ showToast('Soubor musí být PDF', 2500); return; }
-  if(file.size>10*1024*1024){ showToast('PDF je větší než 10 MB', 2800); return; }
-  if(!nazev) nazev=file.name.replace(/\.pdf$/i,'');
-  var safe=file.name.replace(/\.pdf$/i,'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'dok';
-  var path='pdf/dokumenty/'+kat+'/'+safe+'_'+Date.now()+'.pdf';
-  showSync('⏳ Nahrávám PDF…');
-  var r=new FileReader();
-  r.onload=function(){
-    var b64=String(r.result).replace(/^data:[^;]+;base64,/,'');
-    _privStorage().ref(path).putString(b64,'base64',{contentType:'application/pdf'}).then(function(){
-      try { delete _fileUrlCache[path]; } catch(e){}
-      return db.ref('dokumenty').push({ kat:kat, nazev:nazev, so:so, stav:stav, soubor:path, uid:user.uid, author:(window.currentUser.name||''), ts:Date.now() });
-    }).then(function(){
-      hideSync(); showToast('✅ Dokument nahrán', 1800);
+  var fi=document.getElementById('dok-file');
+  var st=document.getElementById('dok-status');
+  var col=_collectPdfFiles(fi.files);
+  if(!col.ok.length){ var msg = col.err.length ? ('⚠️ '+col.err.map(function(e){return e.name+' ('+e.why+')';}).join(', ')) : '⚠️ Vyber PDF soubor(y)'; if(st) st.textContent=msg; else showToast(msg,2500); return; }
+  var files=col.ok, total=files.length, done=0, fail=0;
+  var author=(window.currentUser.name||'');
+  if(st) st.textContent='⏳ Nahrávám 0/'+total+'…'; else showSync('⏳ Nahrávám PDF…');
+
+  function uploadIdx(i){
+    if(i>=total){
+      hideSync();
+      var okN=done;
+      if(st) st.textContent=(fail?('⚠️ Nahráno '+okN+' z '+total+' ('+fail+' selhalo)'):('✅ Hotovo – nahráno '+okN+(okN>1?' dokumentů':' dokument')))+(col.err.length?(' · přeskočeno: '+col.err.map(function(e){return e.name;}).join(', ')):'');
+      showToast(fail?('Nahráno '+okN+'/'+total):(okN>1?('Nahráno '+okN+' dokumentů'):'Dokument nahrán'), 2000);
       document.getElementById('dok-file').value=''; document.getElementById('dok-nazev').value=''; document.getElementById('dok-so').value='';
+      var dc=document.getElementById('dok-file-count'); if(dc) dc.textContent='';
       renderDokumentyList();
-    }).catch(function(e){ hideSync(); showToast('❌ '+((e&&(e.code||e.message))||'chyba uploadu'), 3500); });
-  };
-  r.readAsDataURL(file);
+      return;
+    }
+    var file=files[i];
+    var nazev=(total===1 && nazevInput)?nazevInput:file.name.replace(/\.pdf$/i,'');
+    var path='pdf/dokumenty/'+kat+'/'+_safePdfName(file.name)+'_'+Date.now()+'_'+i+'.pdf';
+    _uploadPdfFile(file,path).then(function(){
+      return db.ref('dokumenty').push({ kat:kat, nazev:nazev, so:so, stav:stav, soubor:path, uid:user.uid, author:author, ts:Date.now() });
+    }).then(function(){
+      done++; if(st) st.textContent='⏳ Nahrávám '+done+'/'+total+'…'; uploadIdx(i+1);
+    }).catch(function(e){
+      console.error('submitDokument exc:', e); fail++; if(st) st.textContent='⏳ Nahrávám '+(done+fail)+'/'+total+' (chyba u '+file.name+')…'; uploadIdx(i+1);
+    });
+  }
+  uploadIdx(0);
 }
 // Vykreslí všechna uložená měření do vrstvy; právě upravované (geometrie) přeskočí.
 // Co se ukazuje ve štítku měření (volitelně skrýt pro screenshoty). Default vše ZAP, pamatuje se.

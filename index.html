@@ -1114,7 +1114,7 @@ textarea.diary-field { resize:none; min-height:60px; }
    ═══════════════════════════════════════════════════════ */
 #kzp-panel { position:fixed; top:0; left:0; right:0; bottom:0; z-index:3700; background:var(--bg); display:none; flex-direction:column; }
 #kzp-panel.open { display:flex; }
-#kzp-header { background:var(--panel); border-bottom:1px solid var(--border); padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top)); display:flex; align-items:center; gap:8px; flex-shrink:0; }
+#kzp-header { background:var(--panel); border-bottom:1px solid var(--border); padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top)); display:flex; flex-wrap:wrap; align-items:center; gap:8px; flex-shrink:0; }
 #kzp-header h2 { flex:1; font-size:15px; color:var(--accent2); }
 #kzp-header button { background:var(--panel2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:6px 10px; font-size:13px; cursor:pointer; }
 #kzp-filter-bar { display:flex; gap:6px; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--border); flex-shrink:0; align-items:center; flex-wrap:wrap; }
@@ -1883,14 +1883,14 @@ document.addEventListener('touchend', function(e){
 <div id="dokumenty-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3200;align-items:center;justify-content:center;padding:14px;">
   <div style="background:var(--panel);border-radius:14px;max-width:560px;width:100%;max-height:92vh;display:flex;flex-direction:column;border:1px solid var(--border);">
     <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="flex:1;font-size:15px;font-weight:700;color:var(--accent);">📋 Dokumenty (KZP / TePř / protokoly)</div>
+      <div style="flex:1;font-size:15px;font-weight:700;color:var(--accent);">📋 Dokumenty (protokoly, ostatní)</div>
       <button onclick="closeDokumentyPanel()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;min-width:44px;min-height:44px;">✕</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px 0;flex-shrink:0;">
+    <div style="font-size:11px;color:var(--text2);padding:8px 14px 0;flex-shrink:0;">ℹ️ TePř a KZP (prohlížení, podpis, koncept/čistopis) jsou v 🧪 Kvalita/KZP. Sem patří protokoly zkoušek a ostatní dokumenty.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0;flex-shrink:0;">
       <button class="dok-fbtn" data-k="all" onclick="setDokFilter('all')" style="background:var(--accent);color:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">Vše</button>
-      <button class="dok-fbtn" data-k="kzp" onclick="setDokFilter('kzp')" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">📋 KZP</button>
-      <button class="dok-fbtn" data-k="tepr" onclick="setDokFilter('tepr')" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">📑 TePř</button>
       <button class="dok-fbtn" data-k="protokol" onclick="setDokFilter('protokol')" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">🧪 Protokoly</button>
+      <button class="dok-fbtn" data-k="ostatni" onclick="setDokFilter('ostatni')" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">📄 Ostatní</button>
     </div>
     <div style="padding:8px 14px;overflow-y:auto;">
       <div id="dokumenty-list"></div>
@@ -1898,13 +1898,11 @@ document.addEventListener('touchend', function(e){
         <div style="font-weight:800;font-size:14px;color:var(--accent);margin-bottom:8px;">➕ Nahrát dokument (PDF)</div>
         <label style="font-size:11px;color:var(--text2);">Druh</label>
         <select id="dok-kat" class="task-field">
-          <option value="kzp">📋 KZP – kontrolní zkušební plán</option>
-          <option value="tepr">📑 TePř – technologický předpis</option>
           <option value="protokol">🧪 Protokol zkoušky</option>
           <option value="ostatni">📄 Ostatní</option>
         </select>
         <label style="font-size:11px;color:var(--text2);">Název (nepovinný)</label>
-        <input id="dok-nazev" class="task-field" type="text" placeholder="např. KZP asfaltové vrstvy">
+        <input id="dok-nazev" class="task-field" type="text" placeholder="např. Protokol zkoušky hutnění">
         <label style="font-size:11px;color:var(--text2);">SO / objekt (nepovinné)</label>
         <input id="dok-so" class="task-field" type="text" placeholder="např. SO 101">
         <label style="font-size:11px;color:var(--text2);">Stav</label>
@@ -1914,7 +1912,7 @@ document.addEventListener('touchend', function(e){
         </select>
         <label style="font-size:11px;color:var(--text2);">PDF soubor(y) – můžeš i více naráz</label>
         <div id="dok-drop" style="border:2px dashed var(--border);border-radius:10px;padding:16px 12px;text-align:center;cursor:pointer;background:var(--panel2);">
-          <div style="font-size:13px;color:var(--text2);">📥 Přetáhni sem PDF nebo <b style="color:var(--accent);">klikni pro výběr</b><br><span style="font-size:11px;opacity:.75;">(TePř/KZP – lze vybrat i více dokumentů najednou)</span></div>
+          <div style="font-size:13px;color:var(--text2);">📥 Přetáhni sem PDF nebo <b style="color:var(--accent);">klikni pro výběr</b><br><span style="font-size:11px;opacity:.75;">(protokoly / ostatní – lze vybrat i více naráz)</span></div>
           <div id="dok-file-count" style="font-size:11px;color:var(--accent);margin-top:6px;word-break:break-word;"></div>
           <input id="dok-file" type="file" accept="application/pdf,.pdf" multiple style="display:none;">
         </div>
@@ -5239,7 +5237,7 @@ function setDokFilter(k){
 }
 function renderDokumentyList(){
   var box=document.getElementById('dokumenty-list'); if(!box) return;
-  var ids=Object.keys(dokumentyData).filter(function(id){ var d=dokumentyData[id]; return d && (window._dokFilter==='all' || d.kat===window._dokFilter); }).sort(function(a,b){ return (dokumentyData[b].ts||0)-(dokumentyData[a].ts||0); });
+  var ids=Object.keys(dokumentyData).filter(function(id){ var d=dokumentyData[id]; if(!d) return false; if(d.kat==='kzp'||d.kat==='tepr') return false; /* TePř/KZP jsou v 🧪 */ return (window._dokFilter==='all' || d.kat===window._dokFilter); }).sort(function(a,b){ return (dokumentyData[b].ts||0)-(dokumentyData[a].ts||0); });
   if(!ids.length){ box.innerHTML='<div style="text-align:center;color:var(--text2);padding:18px;font-size:13px;">Zatím žádné dokumenty. Nahraj PDF ve formuláři níže.</div>'; return; }
   box.innerHTML=ids.map(function(id){
     var d=dokumentyData[id]; var can=canDelete(d.uid);
@@ -18707,14 +18705,17 @@ function renderKzpList(){
     var isKoncept = (k.stav||'cistopis')==='koncept';
     var stavBadge = '<span style="background:'+(isKoncept?'#f5a623':'#48bb78')+';color:#0f3460;font-size:10px;font-weight:800;border-radius:5px;padding:1px 6px;white-space:nowrap;">'+(isKoncept?'📝 KONCEPT':'✅ ČISTOPIS')+'</span>';
     var kindBadge = '<span style="background:var(--panel2);color:var(--text2);font-size:10px;font-weight:700;border-radius:5px;padding:1px 6px;border:1px solid var(--border);">'+typIcon+' '+typTxt+'</span>';
-    // Nahraný dokument (/dokumenty) → nabídni smazání; staré seed/URL položky → edit
+    // Nahraný dokument (/dokumenty): přepnout stav (koncept↔čistopis) + smazat; staré seed/URL → edit
+    var stavToggle = k._dokKey
+      ? '<button onclick="event.stopPropagation();setKzpDocStav(\''+k._dokKey+'\',\''+(isKoncept?'cistopis':'koncept')+'\')" title="'+(isKoncept?'Označit jako čistopis (schváleno)':'Vrátit na koncept')+'" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;padding:3px 7px;white-space:nowrap;">'+(isKoncept?'→ ✅ Čistopis':'→ 📝 Koncept')+'</button>'
+      : '';
     var actBtn = k._dokKey
       ? '<button onclick="event.stopPropagation();deleteKzpDoc(\''+k._dokKey+'\')" title="Smazat dokument" style="background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 6px;">🗑</button>'
       : '<button onclick="event.stopPropagation();openKzpEditModal(\'' + k._id + '\')" title="Upravit" style="background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 6px;">✏️</button>';
     return '<div class="kzp-card" onclick="openKzpItem(\'' + k._id + '\')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
       + '<div style="flex:1;min-width:140px;font-size:15px;font-weight:700;color:var(--text);">' + escapeHtml(title) + '</div>'
       + kindBadge + stavBadge
-      + actBtn
+      + stavToggle + actBtn
       + '</div>';
   }).join('');
 }
@@ -18727,6 +18728,17 @@ function deleteKzpDoc(key){
     try{ if(d.soubor) _privStorage().ref(d.soubor).delete().catch(function(){}); }catch(e){}
     showToast('Dokument smazán', 1800);
   }).catch(function(e){ showToast('❌ '+((e&&e.message)||'chyba'), 3000); });
+}
+// Změna stavu nahraného dokumentu po nahrání: koncept ↔ čistopis.
+function setKzpDocStav(key, stav){
+  var d = (window.dokumentyData||{})[key]; if(!d) return;
+  var canChange = (typeof canDelete==='function' && canDelete(d.uid)) || (typeof isAdmin==='function' && isAdmin());
+  if(!canChange){ showToast('Změnit stav může autor nebo koordinátor', 2800); return; }
+  var lbl = (stav==='cistopis') ? 'ČISTOPIS (schváleno)' : 'KONCEPT (rozpracováno)';
+  if(!confirm('Označit „'+(d.nazev||'')+'" jako '+lbl+'?')) return;
+  db.ref('dokumenty/'+key+'/stav').set(stav)
+    .then(function(){ showToast('Stav změněn na '+(stav==='cistopis'?'✅ čistopis':'📝 koncept'), 2000); })
+    .catch(function(e){ showToast('❌ '+((e&&e.message)||'chyba'), 3000); });
 }
 // Rozpoznání druhu (KZP / TePř) z názvu souboru – pro hromadné nahrání „co je co".
 function _detectDokKat(name){
@@ -18810,6 +18822,9 @@ function openKzpPdfInline(k){
   if(warning)   warning.style.display   = 'none';
   if(addBtn)    addBtn.style.display    = 'none';
   if(cleanupBtn)cleanupBtn.style.display= 'none';
+  var upBtnH=document.getElementById('kzp-upload-btn'); if(upBtnH) upBtnH.style.display='none';
+  var stSwH=document.getElementById('kzp-stav-switch'); if(stSwH) stSwH.style.display='none';
+  var upBoxH=document.getElementById('kzp-upload-box'); if(upBoxH) upBoxH.style.display='none';
   if(backBtn)   backBtn.style.display   = '';
   // TePř - ukaž ✍️ Podepsat a 📥 Stáhnout
   var isTepr = (k.typ === 'tepr');
@@ -18846,6 +18861,8 @@ function closeKzpPdfInline(){
   if(warning)   warning.style.display   = '';
   if(addBtn)    addBtn.style.display    = '';
   if(cleanupBtn)cleanupBtn.style.display= '';
+  var upBtnR=document.getElementById('kzp-upload-btn'); if(upBtnR) upBtnR.style.display='';
+  var stSwR=document.getElementById('kzp-stav-switch'); if(stSwR) stSwR.style.display='flex';
   if(signBtn)   signBtn.style.display   = 'none';
   if(dlBtn)     dlBtn.style.display     = 'none';
   if(backBtn)   backBtn.style.display   = 'none';

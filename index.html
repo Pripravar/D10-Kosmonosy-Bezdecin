@@ -5151,7 +5151,7 @@ var dokumentyData = {};
 var DOK_KAT = { kzp:'📋 KZP', tepr:'📑 TePř', protokol:'🧪 Protokol zkoušky', ostatni:'📄 Ostatní' };
 window._dokFilter = 'all';
 function loadDokumenty(){
-  try { db.ref('dokumenty').on('value', function(snap){ dokumentyData = snap.val() || {}; var m=document.getElementById('dokumenty-modal'); if(m && m.style.display==='flex') renderDokumentyList(); }, function(e){ console.warn('loadDokumenty', e&&e.message); }); } catch(e){}
+  try { db.ref('dokumenty').on('value', function(snap){ dokumentyData = snap.val() || {}; var m=document.getElementById('dokumenty-modal'); if(m && m.style.display==='flex') renderDokumentyList(); var kp=document.getElementById('kzp-panel'); if(kp && kp.classList.contains('open') && typeof refreshKzpAll==='function') refreshKzpAll(); }, function(e){ console.warn('loadDokumenty', e&&e.message); }); } catch(e){}
 }
 // ══ DODACI LISTY – evidence dodavek (foto na pozadi + tabulka + galerie). AI vyteweni: false ══
 // /dodaci_listy/{t} = {foto,fotoOriginal,so,soList,km,author,uid,lat,lng,datum,ts, co,specifikace,mnozstvi,jednotka,dodavatel,cisloDL,spz,konstrukce,poznamka, aiDone}
@@ -17702,9 +17702,47 @@ function refreshKzpAll(){
       if(k && k.nazev) combined[id] = k;
     });
   }
+  // Dokumenty nahrané přes 📥 (uložené v /dokumenty) – TePř/KZP se propíšou sem do Zkumavky.
+  if(window.dokumentyData){
+    Object.keys(window.dokumentyData).forEach(function(key){
+      var d = window.dokumentyData[key];
+      if(!d || !d.soubor) return;
+      if(d.kat!=='kzp' && d.kat!=='tepr') return;   // do Zkumavky jen TePř/KZP
+      var id = 'dok_'+key;
+      combined[id] = {
+        id:id, nazev:(d.nazev||'Dokument'), so:(d.so||''), technologickaCast:'',
+        typ:(d.kat==='tepr'?'tepr':'kzp'),
+        stav:(d.stav==='koncept'?'koncept':'cistopis'),
+        verze:(d.stav==='koncept'?'koncept':'čistopis'),
+        schvaleno:(d.stav!=='koncept'),
+        pdfUrl:d.soubor, ts:d.ts, author:d.author, _dokKey:key
+      };
+    });
+  }
   window.allKzp = combined;
   rebuildKzpFilters();
+  renderKzpStavSwitch();
   renderKzpList();
+}
+// Přepínač Koncept / Čistopis – zřetelně ukazuje, co se zobrazuje. '' = vše.
+window._kzpStav = '';
+function setKzpStav(v){ window._kzpStav = v; renderKzpStavSwitch(); renderKzpList(); }
+function renderKzpStavSwitch(){
+  var sw = document.getElementById('kzp-stav-switch'); if(!sw) return;
+  var cnt = {all:0, koncept:0, cistopis:0};
+  Object.keys(window.allKzp||{}).forEach(function(id){ var k=window.allKzp[id]; cnt.all++; if((k.stav||'cistopis')==='koncept') cnt.koncept++; else cnt.cistopis++; });
+  var groups = [ {k:'', lbl:'Vše', n:cnt.all}, {k:'cistopis', lbl:'✅ Čistopis', n:cnt.cistopis}, {k:'koncept', lbl:'📝 Koncept', n:cnt.koncept} ];
+  sw.innerHTML = '';
+  groups.forEach(function(g){
+    var on = (window._kzpStav===g.k);
+    var b = document.createElement('button');
+    b.textContent = g.lbl+' ('+g.n+')';
+    var baseCol = g.k==='koncept' ? '#f5a623' : (g.k==='cistopis' ? '#48bb78' : 'var(--accent)');
+    b.style.cssText = 'flex:1;padding:8px 8px;font-size:13px;font-weight:800;cursor:pointer;border-radius:8px;border:1px solid var(--border);'+
+      (on ? ('background:'+baseCol+';color:#0f3460;') : 'background:var(--panel);color:var(--text2);');
+    b.onclick = (function(k){ return function(){ setKzpStav(k); }; })(g.k);
+    sw.appendChild(b);
+  });
 }
 
 // Vyčistit Firebase od starých KZP položek (s polem 'cinnost' místo 'nazev')
@@ -18639,6 +18677,7 @@ function renderKzpList(){
   var textFilt = (document.getElementById('kzp-filter-text').value || '').trim().toLowerCase();
   var items = Object.keys(window.allKzp).map(function(id){ var v = window.allKzp[id]; v._id = id; return v; });
   items = items.filter(function(k){
+    if(window._kzpStav && (k.stav || 'cistopis') !== window._kzpStav) return false;   // Koncept / Čistopis
     if(typFilt && (k.typ || 'kzp') !== typFilt) return false;
     if(soFilt && k.so !== soFilt) return false;
     if(tcFilt && (k.technologickaCast || '') !== tcFilt) return false;
@@ -18655,22 +18694,85 @@ function renderKzpList(){
     return (a.technologickaCast || '').localeCompare(b.technologickaCast || '', 'cs');
   });
   if(items.length === 0) {
-    box.innerHTML = '<div id="kzp-empty">Žádné PDF k zobrazení. Klepni <b>📥 Import KZP</b> nahoře pro nahrání z PDF souborů, nebo <b>+ Položka</b> pro ruční zápis.</div>';
+    box.innerHTML = '<div id="kzp-empty" style="text-align:center;color:var(--text2);padding:22px;font-size:13px;">Žádné TePř/KZP'+(window._kzpStav?(' ve stavu '+(window._kzpStav==='koncept'?'📝 Koncept':'✅ Čistopis')):'')+'. Nahoře dej <b>📥 Nahrát</b> a vyber PDF (i více naráz).</div>';
     return;
   }
   box.innerHTML = items.map(function(k){
     var typIcon = (k.typ === 'tepr') ? '📋' : '🧪';
-    var nameMid = (k.typ === 'tepr' && k.nazev) ? k.nazev : (k.technologickaCast || '');
-    var title = (k.so || '–') + (nameMid ? ' - ' + nameMid : '');
-    var schvalenoIcon = (k.schvaleno === false) ? '<span title="Neschváleno" style="color:#ff6b6b;">⚠️</span>' : (k.schvaleno === true ? '<span title="Schváleno" style="color:#48bb78;">✓</span>' : '');
-    var verz = k.verze ? '<span style="color:var(--text2);font-size:11px;margin-left:6px;">' + escapeHtml(k.verze) + '</span>' : '';
-    var actBtn = '<button onclick="event.stopPropagation();openKzpEditModal(\'' + k._id + '\')" title="Upravit" style="background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 6px;">✏️</button>';
-    return '<div class="kzp-card" onclick="openKzpItem(\'' + k._id + '\')" style="display:flex;align-items:center;gap:8px;">'
-      + '<div style="flex:1;font-size:15px;font-weight:700;color:var(--text);">' + typIcon + ' ' + escapeHtml(title) + verz + '</div>'
-      + schvalenoIcon
+    var typTxt  = (k.typ === 'tepr') ? 'TePř' : 'KZP';
+    var nameMid = (k.typ === 'tepr' && k.nazev) ? k.nazev : (k.nazev || k.technologickaCast || '');
+    var title = (k.so ? (k.so+' – ') : '') + (nameMid || '–');
+    var isKoncept = (k.stav||'cistopis')==='koncept';
+    var stavBadge = '<span style="background:'+(isKoncept?'#f5a623':'#48bb78')+';color:#0f3460;font-size:10px;font-weight:800;border-radius:5px;padding:1px 6px;white-space:nowrap;">'+(isKoncept?'📝 KONCEPT':'✅ ČISTOPIS')+'</span>';
+    var kindBadge = '<span style="background:var(--panel2);color:var(--text2);font-size:10px;font-weight:700;border-radius:5px;padding:1px 6px;border:1px solid var(--border);">'+typIcon+' '+typTxt+'</span>';
+    // Nahraný dokument (/dokumenty) → nabídni smazání; staré seed/URL položky → edit
+    var actBtn = k._dokKey
+      ? '<button onclick="event.stopPropagation();deleteKzpDoc(\''+k._dokKey+'\')" title="Smazat dokument" style="background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 6px;">🗑</button>'
+      : '<button onclick="event.stopPropagation();openKzpEditModal(\'' + k._id + '\')" title="Upravit" style="background:transparent;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:2px 6px;">✏️</button>';
+    return '<div class="kzp-card" onclick="openKzpItem(\'' + k._id + '\')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:140px;font-size:15px;font-weight:700;color:var(--text);">' + escapeHtml(title) + '</div>'
+      + kindBadge + stavBadge
       + actBtn
       + '</div>';
   }).join('');
+}
+// Smazání nahraného dokumentu (jen autor nebo admin)
+function deleteKzpDoc(key){
+  var d = (window.dokumentyData||{})[key]; if(!d) return;
+  if(typeof canDelete==='function' && !canDelete(d.uid)){ showToast('Smazat může jen autor nebo koordinátor', 2600); return; }
+  if(!confirm('Smazat dokument „'+(d.nazev||'')+'"? Tím zmizí i ze Zkumavky.')) return;
+  db.ref('dokumenty/'+key).remove().then(function(){
+    try{ if(d.soubor) _privStorage().ref(d.soubor).delete().catch(function(){}); }catch(e){}
+    showToast('Dokument smazán', 1800);
+  }).catch(function(e){ showToast('❌ '+((e&&e.message)||'chyba'), 3000); });
+}
+// Rozpoznání druhu (KZP / TePř) z názvu souboru – pro hromadné nahrání „co je co".
+function _detectDokKat(name){
+  var s = String(name||'').toLowerCase();
+  if(/\bkzp\b|kontroln.*zku/.test(s)) return 'kzp';
+  if(/tep[řr]|technologick.*p[řr]edpis/.test(s)) return 'tepr';
+  return null;
+}
+function toggleKzpUpload(){
+  if(!window.currentUser){ showToast('Pro nahrání se přihlas (úkolníček → přihlášení)', 3500); return; }
+  if(!hasPerm('dokumenty') && !hasPerm('kvalita')){ showToast('Nahrávání Ti admin nepovolil', 3000); return; }
+  var box=document.getElementById('kzp-upload-box'); if(!box) return;
+  var show = (box.style.display==='none' || !box.style.display);
+  box.style.display = show ? 'block' : 'none';
+  if(show){ _setupPdfDrop('kzpup-drop','kzpup-file','kzpup-count'); var st=document.getElementById('kzpup-status'); if(st) st.textContent=''; }
+}
+function submitKzpUpload(){
+  var user=(typeof fbAuth!=='undefined'&&fbAuth)?fbAuth.currentUser:null;
+  if(!user || !window.currentUser){ showToast('Přihlaš se', 2000); return; }
+  var katSel=(document.getElementById('kzpup-kat')||{}).value||'auto';
+  var stav=(document.getElementById('kzpup-stav')||{}).value||'cistopis';
+  var so=((document.getElementById('kzpup-so')||{}).value||'').trim();
+  var fi=document.getElementById('kzpup-file');
+  var st=document.getElementById('kzpup-status');
+  var col=_collectPdfFiles(fi.files);
+  if(!col.ok.length){ if(st) st.textContent = col.err.length?('⚠️ '+col.err.map(function(e){return e.name+' ('+e.why+')';}).join(', ')):'⚠️ Vyber PDF soubor(y)'; return; }
+  var files=col.ok, total=files.length, done=0, fail=0;
+  var author=(window.currentUser.name||'');
+  if(st) st.textContent='⏳ Nahrávám 0/'+total+'…';
+  function uploadIdx(i){
+    if(i>=total){
+      var okN=done;
+      if(st) st.textContent=(fail?('⚠️ Nahráno '+okN+' z '+total+' ('+fail+' selhalo)'):('✅ Hotovo – nahráno '+okN))+(col.err.length?(' · přeskočeno: '+col.err.map(function(e){return e.name;}).join(', ')):'');
+      showToast(fail?('Nahráno '+okN+'/'+total):(okN>1?('Nahráno '+okN+' dokumentů'):'Dokument nahrán'), 2200);
+      fi.value=''; var dc=document.getElementById('kzpup-count'); if(dc) dc.textContent='';
+      // refreshKzpAll se spustí sám přes /dokumenty listener
+      return;
+    }
+    var file=files[i];
+    var kat = (katSel==='auto') ? (_detectDokKat(file.name) || 'kzp') : katSel;   // auto → z názvu, fallback KZP
+    var nazev=file.name.replace(/\.pdf$/i,'');
+    var path='pdf/dokumenty/'+kat+'/'+_safePdfName(file.name)+'_'+Date.now()+'_'+i+'.pdf';
+    _uploadPdfFile(file,path).then(function(){
+      return db.ref('dokumenty').push({ kat:kat, nazev:nazev, so:so, stav:stav, soubor:path, uid:user.uid, author:author, ts:Date.now() });
+    }).then(function(){ done++; if(st) st.textContent='⏳ Nahrávám '+done+'/'+total+'…'; uploadIdx(i+1); })
+      .catch(function(e){ console.error('submitKzpUpload',e); fail++; if(st) st.textContent='⏳ Nahrávám '+(done+fail)+'/'+total+' (chyba u '+file.name+')…'; uploadIdx(i+1); });
+  }
+  uploadIdx(0);
 }
 
 function openKzpItem(id){
@@ -20415,12 +20517,42 @@ function copyDiaryExport(){
     <button id="kzp-download-btn" onclick="downloadTeprWithSigs()" title="Stáhnout finální PDF s podpisy" style="display:none;background:var(--green);color:#fff;">📥 Stáhnout</button>
     <button id="kzp-evidence-btn" onclick="openSignEvidence()" title="Evidence podpisů (přehled tabulka)" style="background:var(--panel2);color:var(--text2);font-size:13px;">📋 Evidence</button>
     <button id="kzp-cleanup-btn" onclick="cleanupOldKzp()" title="Vyčistit staré KZP záznamy" style="background:var(--panel2);color:var(--text2);font-size:13px;">🧹</button>
-    <!-- „+ Položka" (URL katalog) odebráno 2026-11-04 – 🧪 slouží jen k prohlížení + podepisování TePř/KZP; nahrání souborů je pod 📋 Dokumenty -->
+    <button id="kzp-upload-btn" onclick="toggleKzpUpload()" title="Nahrát TePř / KZP (PDF, i více naráz)" style="background:var(--accent);color:#fff;font-weight:700;">📥 Nahrát</button>
     <button onclick="closeKzpPanel()">✕</button>
   </div>
-  <div id="kzp-warning-banner" style="background:rgba(255,107,107,0.18);border-left:4px solid #ff6b6b;color:#ff8585;padding:10px 14px;font-size:13px;line-height:1.4;flex-shrink:0;">
-    ⚠️ <b>POZOR — KZP nejsou schválena</b>. Hodnoty jsou z neschválené verze v01. Pro skutečné kontroly použij vždy aktuální schválený výtisk od TDS / objednatele.
+  <!-- Starý hardcoded warning (v01) skryt – stav řeší přepínač Koncept/Čistopis; element ponechán kvůli JS referencím -->
+  <div id="kzp-warning-banner" style="display:none;"></div>
+  <!-- Nahrání TePř/KZP (hromadně + drag&drop) – sloučeno sem z Dokumentů -->
+  <div id="kzp-upload-box" style="display:none;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel);">
+    <div style="font-weight:800;font-size:14px;color:var(--accent);margin-bottom:8px;">📥 Nahrát TePř / KZP (PDF, i více naráz)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <label style="flex:1;min-width:110px;font-size:11px;color:var(--text2);">Druh
+        <select id="kzpup-kat" class="task-field" style="margin-top:3px;">
+          <option value="auto">🔎 Rozpoznat z názvu</option>
+          <option value="kzp">🧪 KZP</option>
+          <option value="tepr">📋 TePř</option>
+        </select>
+      </label>
+      <label style="flex:1;min-width:110px;font-size:11px;color:var(--text2);">Stav
+        <select id="kzpup-stav" class="task-field" style="margin-top:3px;">
+          <option value="cistopis">✅ Čistopis</option>
+          <option value="koncept">📝 Koncept</option>
+        </select>
+      </label>
+      <label style="flex:1;min-width:110px;font-size:11px;color:var(--text2);">SO (nepovinné)
+        <input id="kzpup-so" class="task-field" type="text" placeholder="např. SO 101" style="margin-top:3px;">
+      </label>
+    </div>
+    <div id="kzpup-drop" style="border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;background:var(--panel2);">
+      <div style="font-size:13px;color:var(--text2);">📥 Přetáhni sem PDF nebo <b style="color:var(--accent);">klikni pro výběr</b><br><span style="font-size:11px;opacity:.75;">(i více TePř/KZP najednou – druh rozpozná z názvu, nebo vyber ručně)</span></div>
+      <div id="kzpup-count" style="font-size:11px;color:var(--accent);margin-top:6px;word-break:break-word;"></div>
+      <input id="kzpup-file" type="file" accept="application/pdf,.pdf" multiple style="display:none;">
+    </div>
+    <div id="kzpup-status" style="font-size:12px;color:var(--text2);min-height:16px;margin-top:6px;"></div>
+    <button onclick="submitKzpUpload()" style="margin-top:6px;width:100%;background:var(--accent);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">📤 Nahrát</button>
   </div>
+  <!-- Přepínač Koncept / Čistopis – zřetelně ukazuje, co se zobrazuje -->
+  <div id="kzp-stav-switch" style="display:flex;gap:6px;padding:8px 14px 2px;flex-shrink:0;"></div>
   <div id="kzp-filter-bar">
     <select id="kzp-filter-typ" onchange="renderKzpList()">
       <option value="">Vše (KZP + TePř)</option>

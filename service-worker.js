@@ -6,7 +6,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 // VERZE cache - při změně příště zvedni, ať si telefony stáhnou novou verzi.
-const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v11-2026-10-27-androidFotoFix';
+const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v12-2026-11-04-importKomentar';
 
 const CORE_ASSETS = [
   './',

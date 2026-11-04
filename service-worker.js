@@ -6,7 +6,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 // VERZE cache - při změně příště zvedni, ať si telefony stáhnou novou verzi.
-const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v16-2026-11-04-hromadnyImportDragDrop';
+const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v17-2026-11-04-kzpZpet';
 
 const CORE_ASSETS = [
   './',

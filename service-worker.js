@@ -6,7 +6,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 // VERZE cache - při změně příště zvedni, ať si telefony stáhnou novou verzi.
-const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v19-2026-11-04-zalohaAdminPerApp';
+const CACHE_VERSION = 'd10-kosmonosy-bezdecin-v20-2026-11-04-zkumavkaSloucenaUpload';
 
 const CORE_ASSETS = [
   './',

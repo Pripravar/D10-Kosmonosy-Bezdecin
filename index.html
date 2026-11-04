@@ -17677,9 +17677,11 @@ function openKzpPanel(){
   if(!window.currentUser) { showToast('Nejdřív se přihlas', 2000); return; }
   if(!hasPerm('kvalita')){ showToast('🧪 Kvalita/KZP Ti admin nepovolil', 3000); return; }
   document.getElementById('kzp-panel').classList.add('open');
+  var ub=document.getElementById('kzp-upload-box'); if(ub) ub.style.display='none';
   loadKzpSeed();
   loadTeprSeed();
   loadKzpManual();
+  if(typeof refreshKzpAll==='function') refreshKzpAll();   // zahrne i /dokumenty hned
 }
 function closeKzpPanel(){
   if(window._kzpPdfOpen) closeKzpPdfInline();
